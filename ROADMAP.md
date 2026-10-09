@@ -21,12 +21,14 @@ Este documento define el estado actual, las fases de desarrollo planificadas y e
 flowchart LR
     Fase1["Fase 1: Base & Race Nodes\n🟢 Completada"]
     Fase2["Fase 2: Carreteras & Físicas\n🟢 Completada"]
-    Fase3["Fase 3: LiDAR & Topografía Real\n🟢 Completada"]
+    Fase3["Fase 3: LiDAR & Topografía Local\n🟢 Completada"]
     Fase4["Fase 4: Exportación & Archivos AC\n🟢 Completada"]
+    Fase5["Fase 5: GIS Mundial, DEM & OSM\n🟢 Completada"]
 
     Fase1 --> Fase2
     Fase2 --> Fase3
     Fase3 --> Fase4
+    Fase4 --> Fase5
 ```
 
 
@@ -102,3 +104,26 @@ flowchart LR
   - Apertura automática opcional del directorio del mod al finalizar.
 - [x] Panel UI de Exportación (`ui/panel_export.py`) con checklist pre-flight interactivo en el N-Panel.
 - [x] Tests unitarios de validación y generación de paquetes (`tests/test_exporters_and_validation.py`).
+
+---
+
+### Fase 5: GIS Mundial, Topografía DEM (AWS Terrarium) y Trazados OSM (Overpass) 🟢 *(Completada)*
+- [x] **Geocodificación GPS Mundial (`gis/geocoding.py`)**:
+  - Búsqueda por nombre de cualquier circuito o carretera de montaña en OpenStreetMap Nominatim.
+  - Extracción automática de Latitud, Longitud y fijación del Ancla Georreferenciada (*Geo-Anchor*).
+- [x] **Topografía DEM sin API Key (`gis/dem_downloader.py` & `gis/png_decoder.py`)**:
+  - Decodificador PNG de 8 bits RGB puro en Python/NumPy sin dependencias externas (PIL/Pillow).
+  - Descarga concurrente de mosaicos de elevación desde AWS Open Data S3 (`elevation-tiles-prod/terrarium`).
+  - Decodificación analítica: `(R * 256 + G + B / 256) - 32768`.
+  - Recorte por *Bounding Box*, remuestreo bilineal y generación de malla 3D nativa en Blender a alta velocidad con `foreach_set` (`TM_Terrain`).
+- [x] **Importación de Carreteras y Circuitos Reales (`gis/osm_roads.py`)**:
+  - Consulta automatizada a OpenStreetMap Overpass API con failover automático entre réplicas globales.
+  - Filtrado de vías: Circuitos de carreras (`raceway`), carreteras principales (Rally / tramos) o red completa.
+  - Algoritmo de encadenamiento topológico (*way segment chaining*) para unir tramos fragmentados y detectar circuitos cerrados (*loops*).
+  - Proyección de cota $Z$ sobre la malla de terreno DEM mediante árboles espaciales `BVHTree`.
+  - Generación de objetos de Curva 3D (`Spline_OSM_`) listos para el generador de calzadas.
+- [x] **UI Integrada y Validación Extremo a Extremo**:
+  - Subpanel GIS actualizado con controles de búsqueda Nominatim, descarga DEM e importación OSM.
+  - Validación y prueba real en Blender 5.1.2 sobre el Circuito del Jarama: terreno 3x3 km, trazado 3D de 3.8 km, mallas física/visual generadas y mod empaquetado para Assetto Corsa.
+  - 20 Tests unitarios automatizados pasando al 100% (`tests/test_gis_tools.py`).
+

@@ -305,6 +305,103 @@ class TrackMakerGISSettings(bpy.types.PropertyGroup):
         default=False,
     )
 
+    # Búsqueda GPS Mundial (Nominatim)
+    search_query: StringProperty(
+        name="Buscar Lugar GPS",
+        description="Nombre del circuito, tramo o lugar del mundo real (ej. 'Circuito del Jarama', 'Monza', 'Passo dello Stelvio')",
+        default="",
+    )
+
+    search_result_name: StringProperty(
+        name="Nombre Encontrado",
+        description="Resultado descriptivo del lugar encontrado",
+        default="",
+    )
+
+    latitude: FloatProperty(
+        name="Latitud (°)",
+        description="Latitud GPS en grados decimales (WGS84)",
+        default=40.615823,
+        precision=6,
+    )
+
+    longitude: FloatProperty(
+        name="Longitud (°)",
+        description="Longitud GPS en grados decimales (WGS84)",
+        default=-3.584889,
+        precision=6,
+    )
+
+    # Descarga DEM (AWS Terrarium)
+    terrain_radius_km: FloatProperty(
+        name="Radio Terreno (km)",
+        description="Radio de cobertura del terreno DEM en kilómetros",
+        default=2.0,
+        min=0.5,
+        max=15.0,
+        unit="LENGTH",
+    )
+
+    terrain_resolution: IntProperty(
+        name="Resolución Malla",
+        description="Número de subdivisiones de la cuadrícula de relieve DEM",
+        default=256,
+        min=32,
+        max=1024,
+    )
+
+    dem_zoom: IntProperty(
+        name="Zoom Mosaicos DEM",
+        description="Nivel de detalle de elevación Terrarium (11-15, recomendado 13-14)",
+        default=13,
+        min=10,
+        max=15,
+    )
+
+    # Carreteras OpenStreetMap (Overpass API)
+    osm_road_type: EnumProperty(
+        name="Tipo de Vía OSM",
+        description="Tipo de carretera a importar de OpenStreetMap",
+        items=[
+            ("RACEWAY", "Circuitos (Raceway)", "Circuitos cerrados y pistas de competición"),
+            ("MAIN_ROADS", "Carreteras Principales", "Autopistas, carreteras nacionales y secundarias (Rally / Tramos)"),
+            ("ALL_ROADS", "Todas las Vías Transitables", "Toda la red de carreteras públicas"),
+            ("CUSTOM", "Filtro Personalizado", "Expresión regular personalizada para etiqueta highway"),
+        ],
+        default="RACEWAY",
+    )
+
+    osm_custom_filter: StringProperty(
+        name="Filtro Highway OSM",
+        description="Expresión regular para la clave highway de OpenStreetMap (ej. raceway|primary)",
+        default="raceway",
+    )
+
+    osm_radius_m: FloatProperty(
+        name="Radio Búsqueda Vías (m)",
+        description="Radio en metros para extraer carreteras desde el centro GPS",
+        default=2000.0,
+        min=100.0,
+        max=25000.0,
+        unit="LENGTH",
+    )
+
+    osm_snap_to_terrain: bpy.props.BoolProperty(
+        name="Proyectar a Terreno",
+        description="Proyectar automáticamente la cota Z de los vértices sobre el terreno DEM",
+        default=True,
+    )
+
+    osm_curve_type: EnumProperty(
+        name="Tipo de Spline",
+        description="Tipo de spline para la curva generada en Blender",
+        items=[
+            ("BEZIER", "Bézier Suave", "Curva Bézier con tangentes automáticas"),
+            ("POLY", "Polilínea Fiel", "Curva poligonal recta punto a punto exacta"),
+        ],
+        default="BEZIER",
+    )
+
     # Snapping a terreno
     target_terrain_name: StringProperty(
         name="Malla Terreno",
