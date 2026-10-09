@@ -336,12 +336,48 @@ class TrackMakerGISSettings(bpy.types.PropertyGroup):
     )
 
 
+class TrackMakerExportSettings(bpy.types.PropertyGroup):
+    """Parámetros de validación y exportación a Assetto Corsa."""
+
+    export_directory: StringProperty(
+        name="Carpeta de Destino",
+        description="Directorio donde se creará la carpeta del mod con el FBX y configuraciones",
+        default="//export",
+        subtype="DIR_PATH",
+    )
+
+    export_fbx: bpy.props.BoolProperty(
+        name="Exportar FBX para ksEditor",
+        description="Genera el modelo 3D en formato FBX optimizado para ksEditor",
+        default=True,
+    )
+
+    generate_configs: bpy.props.BoolProperty(
+        name="Generar INIs y ui_track.json",
+        description="Crea automáticamente surfaces.ini, models.ini y ui/ui_track.json",
+        default=True,
+    )
+
+    apply_modifiers_on_export: bpy.props.BoolProperty(
+        name="Aplicar Modificadores",
+        description="Aplica Geometry Nodes y otros modificadores antes de exportar el FBX",
+        default=True,
+    )
+
+    open_folder_after: bpy.props.BoolProperty(
+        name="Abrir Carpeta al Finalizar",
+        description="Abre el explorador de archivos en la carpeta del mod exportado",
+        default=False,
+    )
+
+
 classes = (
     TrackMakerCircuitSettings,
     TrackMakerSpawnSettings,
     TrackMakerTimingSettings,
     TrackMakerRoadSettings,
     TrackMakerGISSettings,
+    TrackMakerExportSettings,
 )
 
 
@@ -354,6 +390,7 @@ def register():
     bpy.types.Scene.track_maker_timing = PointerProperty(type=TrackMakerTimingSettings)
     bpy.types.Scene.track_maker_road = PointerProperty(type=TrackMakerRoadSettings)
     bpy.types.Scene.track_maker_gis = PointerProperty(type=TrackMakerGISSettings)
+    bpy.types.Scene.track_maker_export = PointerProperty(type=TrackMakerExportSettings)
 
 
 def unregister():
@@ -362,8 +399,10 @@ def unregister():
     del bpy.types.Scene.track_maker_timing
     del bpy.types.Scene.track_maker_road
     del bpy.types.Scene.track_maker_gis
+    del bpy.types.Scene.track_maker_export
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
+
 
 

@@ -5,8 +5,13 @@ Este documento define el estado actual, las fases de desarrollo planificadas y e
 ---
 
 ## 🧭 Estado Actual del Proyecto
-* **Fase Activa:** **Fase 4 (Siguiente: Validación Pre-flight, Exportación FBX y Empaquetado de Mod para Assetto Corsa)**
-* **Hitos Recientes:** Fases 1, 2 y 3 completadas con éxito (Esqueleto modular, Race Nodes AC, Carreteras procedurales, Malla física 1ROAD_, Geo-Anchor anti-jitter, Snapping LiDAR Raycast y suite completa de tests).
+* **Estado General:** **¡Núcleo Completo (Fases 1, 2, 3 y 4 Implementadas y Verificadas)!**
+* **Capacidades Operativas:**
+  1. Generación de todos los Race Nodes de Assetto Corsa (`AC_START_`, `AC_PIT_`, `AC_HOTLAP_`, `AC_TIME_`).
+  2. Generador de Carreteras Procedurales con Geometry Nodes y división estricta Malla Visual vs Malla Física (`1ROAD_`).
+  3. Georreferenciación y origen local anti-jitter (Geo-Anchor), con proyección vertical Raycast y extracción de peralte real LiDAR.
+  4. Validador Pre-flight y Exportador de Mod (FBX para ksEditor, `surfaces.ini`, `models.ini` y `ui/ui_track.json`).
+  5. 14 Tests unitarios automatizados que cubren toda la lógica matemática y de exportación.
 
 ---
 
@@ -14,15 +19,16 @@ Este documento define el estado actual, las fases de desarrollo planificadas y e
 
 ```mermaid
 flowchart LR
-    Fase1["Fase 1: Base & Race Nodes\n(En curso)"]
-    Fase2["Fase 2: Carreteras & Físicas\n(Pendiente)"]
-    Fase3["Fase 3: LiDAR & Topografía Real\n(Pendiente)"]
-    Fase4["Fase 4: Exportación & Archivos AC\n(Pendiente)"]
+    Fase1["Fase 1: Base & Race Nodes\n🟢 Completada"]
+    Fase2["Fase 2: Carreteras & Físicas\n🟢 Completada"]
+    Fase3["Fase 3: LiDAR & Topografía Real\n🟢 Completada"]
+    Fase4["Fase 4: Exportación & Archivos AC\n🟢 Completada"]
 
     Fase1 --> Fase2
     Fase2 --> Fase3
     Fase3 --> Fase4
 ```
+
 
 ---
 
@@ -79,14 +85,20 @@ flowchart LR
 
 ---
 
-### Fase 4: Validación Pre-flight, Exportación y Empaquetado ⚪ *(Pendiente)*
-- [ ] Validador Pre-flight:
-  - Verificación de existencia de nodos mínimos (`AC_START_0`, al menos una puerta de cronometraje).
-  - Verificación de nombres de mallas físicas (`1ROAD_`, `1WALL_`, etc.).
-  - Detección de solapamientos o escalas no uniformes (escala != 1.0).
-- [ ] Exportador FBX para ksEditor:
-  - Configuración automatizada de ejes (Z-Up, Y-Forward) y unidades métricas.
-- [ ] Generador de configuración de pista:
-  - `surfaces.ini` con valores predeterminados según materiales.
-  - `models.ini` configurando los archivos `.kn5`.
-  - `ui/ui_track.json` con metadatos del circuito (longitud calculada de spline, autor, país, curvas).
+### Fase 4: Validación Pre-flight, Exportación y Empaquetado 🟢 *(Completada)*
+- [x] Validador Pre-flight (`exporters/validator.py`):
+  - Verificación de nodos obligatorios (`AC_START_0`, al menos una puerta de meta `AC_TIME_0` o tramo `AC_AB`).
+  - Verificación de existencia de mallas físicas (`1ROAD_`).
+  - Detección de escalas no unitarias (escala != 1.0) para prevenir deformaciones en ksEditor.
+  - Generación de informe con errores bloqueantes y advertencias no bloqueantes.
+- [x] Generador de Archivos de Configuración (`exporters/config_generator.py`):
+  - `surfaces.ini` generado automáticamente en raíz y en `data/` con presets de fricción, baches y FFB.
+  - `models.ini` configurando la carga del archivo `<track_name>.kn5`.
+  - `ui/ui_track.json` con metadatos calculados (longitud estimada de trazado, autor, país, etiquetas).
+  - Empaquetado en la jerarquía física de carpetas del mod de Assetto Corsa.
+- [x] Exportador FBX para ksEditor (`exporters/assetto_corsa.py`):
+  - Filtrado automático de objetos de circuito y exclusión de cámaras/luces de Blender.
+  - Configuración automatizada de ejes de ksEditor (-Z Forward, Y Up, escala 1.0).
+  - Apertura automática opcional del directorio del mod al finalizar.
+- [x] Panel UI de Exportación (`ui/panel_export.py`) con checklist pre-flight interactivo en el N-Panel.
+- [x] Tests unitarios de validación y generación de paquetes (`tests/test_exporters_and_validation.py`).

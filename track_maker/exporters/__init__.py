@@ -1,9 +1,13 @@
-"""Módulo de validación pre-flight y exportación para Assetto Corsa (Fase 4)."""
+"""Módulo de validación pre-flight y exportación para Assetto Corsa."""
+
+from . import validator
+from . import config_generator
+from . import assetto_corsa
 
 
 def register():
-    pass
+    assetto_corsa.register()
 
 
 def unregister():
-    pass
+    assetto_corsa.unregister()
