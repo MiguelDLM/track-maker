@@ -5,8 +5,8 @@ Este documento define el estado actual, las fases de desarrollo planificadas y e
 ---
 
 ## 🧭 Estado Actual del Proyecto
-* **Fase Activa:** **Fase 3 (Siguiente: Integración Topográfica y LiDAR Real)**
-* **Hitos Recientes:** Fases 1 y 2 completadas con éxito (Esqueleto modular, Race Nodes AC, Generador de Carreteras Procedurales, Geometry Nodes, Separación Física/Visual 1ROAD_ y Suite de Tests Unitarios).
+* **Fase Activa:** **Fase 4 (Siguiente: Validación Pre-flight, Exportación FBX y Empaquetado de Mod para Assetto Corsa)**
+* **Hitos Recientes:** Fases 1, 2 y 3 completadas con éxito (Esqueleto modular, Race Nodes AC, Carreteras procedurales, Malla física 1ROAD_, Geo-Anchor anti-jitter, Snapping LiDAR Raycast y suite completa de tests).
 
 ---
 
@@ -65,12 +65,17 @@ flowchart LR
 
 ---
 
-### Fase 3: Integración de Datos Topográficos Reales (LiDAR / GIS) ⚪ *(Pendiente)*
-- [ ] Sistema de Anclaje Georreferenciado (*Geo-Anchor*):
+### Fase 3: Integración de Datos Topográficos Reales (LiDAR / GIS) 🟢 *(Completada)*
+- [x] Sistema de Anclaje Georreferenciado (*Geo-Anchor* en `geo_anchor.py`):
+  - Conversión de WGS84 (Lat/Lon) a UTM con cálculo de husos y hemisferio.
   - Compensación y desplazamiento del origen local `(0, 0, 0)` para neutralizar el *floating-point jitter* (pérdida de precisión de 32 bits).
-- [ ] Módulo de proyección al terreno (*Terrain Snapping*):
-  - Algoritmo de *Raycast / Surface Conform* mediante Geometry Nodes para adaptar la curva y el asfalto exactamente a la cota del terreno real.
-  - Suavizado adaptativo de pendientes (*smoothing*) para evitar saltos irreales en nubes de puntos no depuradas.
+  - Operador para recentrar mallas y nubes de puntos importadas (`recenter_gis_objects`).
+- [x] Módulo de proyección al terreno (*Terrain Snapping* en `terrain_snap.py`):
+  - Algoritmo de *Raycast Vertical* acelerado mediante árboles espaciales `BVHTree` para adaptar la curva Bézier a la topografía de la malla LiDAR (`snap_curve_to_terrain`).
+  - Extracción y ajuste de peralte real (*Match Terrain Banking*) a partir de las normales de la superficie del terreno.
+  - Filtro laplaciano de suavizado de pendientes (`smooth_curve_elevation`) para eliminar artefactos y ruido del escáner.
+- [x] Panel UI de Topografía y LiDAR (`ui/panel_gis.py`) integrado en el N-Panel de Blender.
+- [x] Tests unitarios de conversión de coordenadas y precisión milimétrica (`tests/test_geo_anchor.py`).
 
 ---
 

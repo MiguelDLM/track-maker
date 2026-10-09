@@ -4,16 +4,10 @@ import sys
 import unittest
 from unittest.mock import MagicMock
 
-# Si se ejecuta fuera de Blender, mockear bpy y mathutils
-if "bpy" not in sys.modules:
-    sys.modules["bpy"] = MagicMock()
-    sys.modules["bpy.props"] = MagicMock()
-if "bmesh" not in sys.modules:
-    sys.modules["bmesh"] = MagicMock()
-if "mathutils" not in sys.modules:
-    sys.modules["mathutils"] = MagicMock()
+import tests  # Inicializa los mocks de Blender
 
 from track_maker.road.profile_generator import generate_cross_section_profile
+
 
 
 class TestRoadProfileGenerator(unittest.TestCase):

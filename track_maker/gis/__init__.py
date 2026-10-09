@@ -1,9 +1,14 @@
-"""Módulo de georreferenciación, origen local y snapping LiDAR (Fase 3)."""
+"""Módulo de georreferenciación, anclaje local y snapping LiDAR."""
+
+from . import geo_anchor
+from . import terrain_snap
 
 
 def register():
-    pass
+    geo_anchor.register()
+    terrain_snap.register()
 
 
 def unregister():
-    pass
+    terrain_snap.unregister()
+    geo_anchor.unregister()

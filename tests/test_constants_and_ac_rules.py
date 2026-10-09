@@ -4,13 +4,7 @@ import sys
 import unittest
 from unittest.mock import MagicMock
 
-if "bpy" not in sys.modules:
-    sys.modules["bpy"] = MagicMock()
-    sys.modules["bpy.props"] = MagicMock()
-if "mathutils" not in sys.modules:
-    sys.modules["mathutils"] = MagicMock()
-if "bmesh" not in sys.modules:
-    sys.modules["bmesh"] = MagicMock()
+import tests  # Inicializa los mocks de Blender
 
 from track_maker.core.constants import (
     PREFIX_PHYS_ROAD,

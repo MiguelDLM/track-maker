@@ -266,11 +266,82 @@ class TrackMakerRoadSettings(bpy.types.PropertyGroup):
     )
 
 
+class TrackMakerGISSettings(bpy.types.PropertyGroup):
+    """Parámetros para georreferenciación, origen local anti-jitter y snapping LiDAR."""
+
+    anchor_utm_x: FloatProperty(
+        name="Ancla UTM X (Easting)",
+        description="Coordenada este en metros del punto de referencia central",
+        default=0.0,
+        precision=3,
+    )
+
+    anchor_utm_y: FloatProperty(
+        name="Ancla UTM Y (Northing)",
+        description="Coordenada norte en metros del punto de referencia central",
+        default=0.0,
+        precision=3,
+    )
+
+    anchor_elevation_z: FloatProperty(
+        name="Ancla Elevación Z",
+        description="Cota de altura sobre el nivel del mar en metros del origen local",
+        default=0.0,
+        precision=3,
+        unit="LENGTH",
+    )
+
+    epsg_code: IntProperty(
+        name="Código EPSG / CRS",
+        description="Sistema de referencia de coordenadas (ej. 25830 para UTM30N España, 32614 para UTM14N México)",
+        default=25830,
+        min=1000,
+        max=99999,
+    )
+
+    has_anchor: bpy.props.BoolProperty(
+        name="Ancla Activa",
+        description="Indica si el proyecto tiene un ancla georreferenciada fijada",
+        default=False,
+    )
+
+    # Snapping a terreno
+    target_terrain_name: StringProperty(
+        name="Malla Terreno",
+        description="Nombre del objeto de terreno DTM o LiDAR escaneado sobre el que proyectar",
+        default="",
+    )
+
+    snap_elevation_offset: FloatProperty(
+        name="Offset Vertical",
+        description="Elevación sobre la superficie del terreno para evitar Z-fighting con la hierba (ej. +2 a 5 cm)",
+        default=0.03,
+        min=-0.5,
+        max=2.0,
+        unit="LENGTH",
+    )
+
+    match_terrain_banking: bpy.props.BoolProperty(
+        name="Copiar Peralte Real",
+        description="Calcula e iguala la inclinación transversal (tilt) analizando las normales del terreno LiDAR",
+        default=True,
+    )
+
+    smoothing_passes: IntProperty(
+        name="Pasadas de Suavizado",
+        description="Pasadas de suavizado de cota vertical para filtrar ruido del escaneo LiDAR",
+        default=2,
+        min=0,
+        max=10,
+    )
+
+
 classes = (
     TrackMakerCircuitSettings,
     TrackMakerSpawnSettings,
     TrackMakerTimingSettings,
     TrackMakerRoadSettings,
+    TrackMakerGISSettings,
 )
 
 
@@ -282,6 +353,7 @@ def register():
     bpy.types.Scene.track_maker_spawns = PointerProperty(type=TrackMakerSpawnSettings)
     bpy.types.Scene.track_maker_timing = PointerProperty(type=TrackMakerTimingSettings)
     bpy.types.Scene.track_maker_road = PointerProperty(type=TrackMakerRoadSettings)
+    bpy.types.Scene.track_maker_gis = PointerProperty(type=TrackMakerGISSettings)
 
 
 def unregister():
@@ -289,7 +361,9 @@ def unregister():
     del bpy.types.Scene.track_maker_spawns
     del bpy.types.Scene.track_maker_timing
     del bpy.types.Scene.track_maker_road
+    del bpy.types.Scene.track_maker_gis
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
+
 
