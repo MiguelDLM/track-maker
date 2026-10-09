@@ -394,6 +394,52 @@ class TrackMakerGISSettings(bpy.types.PropertyGroup):
         default=True,
     )
 
+    # Exageración / Escala Vertical
+    vertical_scale: FloatProperty(
+        name="Escala Vertical (Relieve)",
+        description="Multiplicador de relieve vertical (1.0 = escala 1:1 real en metros; 1.5x a 2.0x resalta puertos y pendientes)",
+        default=1.0,
+        min=0.5,
+        max=5.0,
+        precision=2,
+    )
+
+    # Estadísticas Altimétricas de Ruta en Vivo
+    route_info_distance: FloatProperty(
+        name="Longitud Ruta (km)",
+        description="Distancia recorrida del tramo en kilómetros",
+        default=0.0,
+        precision=2,
+    )
+
+    route_info_climb: FloatProperty(
+        name="Desnivel Acumulado (m)",
+        description="Desnivel bruto entre cota máxima y mínima del tramo",
+        default=0.0,
+        precision=1,
+    )
+
+    route_info_min_elev: FloatProperty(
+        name="Cota Mínima (m)",
+        description="Altitud mínima sobre el nivel del mar en metros",
+        default=0.0,
+        precision=1,
+    )
+
+    route_info_max_elev: FloatProperty(
+        name="Cota Máxima (m)",
+        description="Altitud máxima sobre el nivel del mar en metros",
+        default=0.0,
+        precision=1,
+    )
+
+    route_info_max_grade: FloatProperty(
+        name="Pendiente Máxima (%)",
+        description="Mayor pendiente porcentual registrada en el tramo",
+        default=0.0,
+        precision=1,
+    )
+
     # Descarga DEM (AWS Terrarium)
     terrain_radius_km: FloatProperty(
         name="Radio Terreno (km)",

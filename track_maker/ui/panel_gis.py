@@ -89,6 +89,8 @@ class TRACKMAKER_PT_GISPanel(bpy.types.Panel):
         row_dem_detail.prop(gis_cfg, "dem_zoom")
         row_dem_detail.prop(gis_cfg, "terrain_resolution")
 
+        box_dem.prop(gis_cfg, "vertical_scale")
+
         row_dem_btn = box_dem.row(align=True)
         row_dem_btn.scale_y = 1.3
         btn_dem_text = "Descargar Terreno Corredor A-B" if gis_cfg.coverage_mode == "POINTS_AB" else "Descargar Terreno 3D (DEM)"
@@ -124,6 +126,14 @@ class TRACKMAKER_PT_GISPanel(bpy.types.Panel):
                 text="Importar Red de Vías del Corredor (Overpass)",
                 icon="CURVE_DATA",
             )
+
+        if gis_cfg.route_info_distance > 0:
+            box_alti = layout.box()
+            box_alti.label(text="Perfil Altimétrico Real", icon="GRAPH")
+            col_al = box_alti.column(align=True)
+            col_al.label(text=f"Longitud: {gis_cfg.route_info_distance:.2f} km | Desnivel: {gis_cfg.route_info_climb:.1f} m", icon="TRACKING_FORWARDS")
+            col_al.label(text=f"Cota: {gis_cfg.route_info_min_elev:.0f} m a {gis_cfg.route_info_max_elev:.0f} m", icon="DRIVER_DISTANCE")
+            col_al.label(text=f"Pendiente Máxima: {gis_cfg.route_info_max_grade:.1f}%", icon="IPO_BEZIER")
 
         else:  # Modo RADIUS
             col_osm_opts = box_osm.column(align=True)

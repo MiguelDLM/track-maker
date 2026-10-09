@@ -219,21 +219,22 @@ def create_blender_terrain_mesh(
     center_lon: float,
     width_m: float,
     height_m: float,
+    bbox: Optional[Tuple[float, float, float, float]] = None,
     obj_name: str = "TM_Terrain",
 ) -> bpy.types.Object:
     """Construye un objeto de malla Blender a partir de la cuadrícula DEM centrada en el Geo-Anchor."""
     gis_cfg = context.scene.track_maker_gis
 
-    # Asegurar Ancla Georreferenciada activa
-    if not gis_cfg.has_anchor:
-        easting, northing, zone, hem = wgs84_to_utm(center_lat, center_lon)
-        gis_cfg.anchor_utm_x = easting
-        gis_cfg.anchor_utm_y = northing
-        gis_cfg.anchor_elevation_z = float(np.mean(elevation))
-        gis_cfg.has_anchor = True
-        gis_cfg.epsg_code = (32600 if hem == "N" else 32700) + zone
+    # Sincronizar Ancla Georreferenciada siempre al centro exacto del relieve generado
+    easting, northing, zone, hem = wgs84_to_utm(center_lat, center_lon)
+    gis_cfg.anchor_utm_x = easting
+    gis_cfg.anchor_utm_y = northing
+    gis_cfg.anchor_elevation_z = float(np.min(elevation))
+    gis_cfg.has_anchor = True
+    gis_cfg.epsg_code = (32600 if hem == "N" else 32700) + zone
 
     rows, cols = elevation.shape
+    v_scale = getattr(gis_cfg, "vertical_scale", 1.0)
 
     # Coordenadas locales en metros relativas al centro
     # X va de Oeste a Este (-width/2 a +width/2)
@@ -242,8 +243,8 @@ def create_blender_terrain_mesh(
     y_coords = np.linspace(height_m / 2.0, -height_m / 2.0, rows, dtype=np.float32)
 
     xx, yy = np.meshgrid(x_coords, y_coords)
-    # Z relativo a la cota del Ancla
-    zz = (elevation - gis_cfg.anchor_elevation_z).astype(np.float32)
+    # Z relativo a la cota base del ancla multiplicado por escala vertical
+    zz = ((elevation - gis_cfg.anchor_elevation_z) * v_scale).astype(np.float32)
 
     vertices = np.column_stack([xx.ravel(), yy.ravel(), zz.ravel()]).astype(np.float32)
 
@@ -294,6 +295,9 @@ def create_blender_terrain_mesh(
     obj["gis_height_m"] = height_m
     obj["gis_elevation_min"] = float(np.min(elevation))
     obj["gis_elevation_max"] = float(np.max(elevation))
+    obj["gis_vertical_scale"] = float(v_scale)
+    if bbox:
+        obj["gis_bbox"] = list(bbox)
 
     # Establecer como terreno objetivo en configuración GIS
     gis_cfg.target_terrain_name = obj.name
@@ -364,6 +368,7 @@ class TRACKMAKER_OT_DownloadTerrainDEM(bpy.types.Operator):
                 center_lon=center_lon,
                 width_m=width_m,
                 height_m=height_m,
+                bbox=bbox_out,
                 obj_name="TM_Terrain",
             )
 

@@ -78,25 +78,41 @@ def create_ab_route_curve(
     # Preparar raycaster si hay terreno disponible
     bvh = None
     terrain_obj = bpy.data.objects.get(terrain_obj_name)
+    mat_world = terrain_obj.matrix_world if terrain_obj else None
+    inv_mat = mat_world.inverted() if mat_world else None
+
     if snap_to_terrain and terrain_obj and terrain_obj.type == "MESH":
         depsgraph = context.evaluated_depsgraph_get()
         bvh = bvhtree.BVHTree.FromObject(terrain_obj, depsgraph)
 
     local_points: List[Vector] = []
+    real_altitudes: List[float] = []
+    last_valid_z = None
+
     for lat, lon in coords:
         easting, northing, _, _ = wgs84_to_utm(lat, lon)
         lx = easting - gis_cfg.anchor_utm_x
         ly = northing - gis_cfg.anchor_utm_y
         lz = 0.0
 
-        if bvh:
-            ray_origin = Vector((lx, ly, 5000.0))
-            ray_dir = Vector((0.0, 0.0, -1.0))
-            hit_loc, _, _, _ = bvh.ray_cast(ray_origin, ray_dir)
+        if bvh and inv_mat and mat_world:
+            ray_origin_world = Vector((lx, ly, 10000.0))
+            ray_dir_world = Vector((0.0, 0.0, -1.0))
+            ray_origin_local = inv_mat @ ray_origin_world
+            ray_dir_local = (inv_mat.to_3x3() @ ray_dir_world).normalized()
+
+            hit_loc, _, _, _ = bvh.ray_cast(ray_origin_local, ray_dir_local)
             if hit_loc:
-                lz = hit_loc.z + offset_z
+                hit_world = mat_world @ hit_loc
+                lz = hit_world.z + offset_z
+                last_valid_z = lz
+            elif last_valid_z is not None:
+                lz = last_valid_z
 
         local_points.append(Vector((lx, ly, lz)))
+        v_scale = getattr(gis_cfg, "vertical_scale", 1.0) or 1.0
+        real_alt = (lz / v_scale) + getattr(gis_cfg, "anchor_elevation_z", 0.0)
+        real_altitudes.append(real_alt)
 
     # Crear colección de rutas si no existe
     col_name = "TM_OSM_Roads"
@@ -128,7 +144,7 @@ def create_ab_route_curve(
     obj.select_set(True)
     context.view_layer.objects.active = obj
 
-    return obj
+    return obj, real_altitudes, local_points
 
 
 class TRACKMAKER_OT_FetchOSRMRoute(bpy.types.Operator):
@@ -154,7 +170,7 @@ class TRACKMAKER_OT_FetchOSRMRoute(bpy.types.Operator):
                 self.report({"WARNING"}, "No se encontraron coordenadas en la ruta calculada.")
                 return {"CANCELLED"}
 
-            spline_obj = create_ab_route_curve(
+            spline_obj, real_altitudes, local_points = create_ab_route_curve(
                 context=context,
                 coords=coords,
                 obj_name="Spline_Route_AB",
@@ -167,6 +183,22 @@ class TRACKMAKER_OT_FetchOSRMRoute(bpy.types.Operator):
             if hasattr(context.scene, "track_maker_circuit"):
                 context.scene.track_maker_circuit.circuit_type = "HILLCLIMB_AB"
 
+            # Actualizar estadísticas altimétricas
+            gis_cfg.route_info_distance = dist_km
+            if real_altitudes:
+                min_a = min(real_altitudes)
+                max_a = max(real_altitudes)
+                gis_cfg.route_info_min_elev = min_a
+                gis_cfg.route_info_max_elev = max_a
+                gis_cfg.route_info_climb = max_a - min_a
+                grades = []
+                for i in range(1, len(local_points)):
+                    dd = (local_points[i] - local_points[i - 1]).length
+                    dz = abs(local_points[i].z - local_points[i - 1].z)
+                    if dd > 1.0:
+                        grades.append((dz / dd) * 100.0)
+                gis_cfg.route_info_max_grade = max(grades) if grades else 0.0
+
             # Ajustar visor y encuadrar
             if gis_cfg.auto_adjust_clipping:
                 max_span = max(spline_obj.dimensions.x, spline_obj.dimensions.y, dist_km * 1000.0)
@@ -176,7 +208,7 @@ class TRACKMAKER_OT_FetchOSRMRoute(bpy.types.Operator):
 
             self.report(
                 {"INFO"},
-                f"Ruta trazada con éxito: {dist_km:.2f} km ({len(coords)} nodos) | Objeto: '{spline_obj.name}'",
+                f"Ruta trazada: {dist_km:.2f} km | Cota: {min(real_altitudes):.0f}m a {max(real_altitudes):.0f}m (Desnivel: {max(real_altitudes)-min(real_altitudes):.0f}m)",
             )
             return {"FINISHED"}
 
