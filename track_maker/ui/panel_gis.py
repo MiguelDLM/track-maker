@@ -29,9 +29,25 @@ class TRACKMAKER_PT_GISPanel(bpy.types.Panel):
         box_mode.prop(gis_cfg, "coverage_mode", expand=True)
 
         # ---------------------------------------------------------
-        # 1. COORDENADAS: MODO RADIO vs MODO TRAMO A -> B
+        # 1. MODO TRAMO PUNTO A ➔ PUNTO B (HILLCLIMB / SPRINT / RALLY)
         # ---------------------------------------------------------
         if gis_cfg.coverage_mode == "POINTS_AB":
+            # 1.0 BOTÓN MAESTRO 1-CLIC (PIPELINE RUTA-PRIMERO)
+            box_quick = layout.box()
+            box_quick.label(text="⚡ Flujo 1-Clic: Tramo Completo", icon="AUTO")
+            row_quick_btn = box_quick.row(align=True)
+            row_quick_btn.scale_y = 1.4
+            row_quick_btn.operator(
+                "track_maker.build_full_ab_stage",
+                text="⚡ Crear Tramo Completo A ➔ B",
+                icon="PLAY",
+            )
+            box_quick.label(
+                text="Descarga ruta OSRM, genera relieve del corredor exacto y crea puertas AC.",
+                icon="INFO",
+            )
+
+            # 1.1 Coordenadas de Salida y Meta
             box_ab = layout.box()
             box_ab.label(text="1. Coordenadas del Tramo A ➔ B", icon="IPO_BEZIER")
 
@@ -50,14 +66,51 @@ class TRACKMAKER_PT_GISPanel(bpy.types.Panel):
             row_ab_tools = box_ab.row(align=True)
             row_ab_tools.operator("track_maker.swap_points_ab", text="Invertir Sentido (A ⇄ B)", icon="FILE_REFRESH")
 
-            # Cálculo en vivo de distancia estimada en línea recta
+            # Distancia aproximada en línea recta
             d_lat = abs(gis_cfg.point_b_lat - gis_cfg.point_a_lat) * 111.32
             d_lon = abs(gis_cfg.point_b_lon - gis_cfg.point_a_lon) * 111.32 * math.cos(math.radians((gis_cfg.point_a_lat + gis_cfg.point_b_lat) / 2.0))
             dist_est_km = math.hypot(d_lat, d_lon)
             box_ab.label(text=f"Distancia recta: ~{dist_est_km:.1f} km", icon="INFO")
             box_ab.prop(gis_cfg, "corridor_margin_km")
 
-        else:  # Modo RADIO (Circuito cerrado)
+            # 1.2 Relieve DEM Corredor
+            box_dem = layout.box()
+            box_dem.label(text="2. Relieve Terreno 3D (AWS DEM)", icon="WORLD")
+            row_dem_detail = box_dem.row(align=True)
+            row_dem_detail.prop(gis_cfg, "dem_zoom")
+            row_dem_detail.prop(gis_cfg, "terrain_resolution")
+            box_dem.prop(gis_cfg, "vertical_scale")
+            row_dem_btn = box_dem.row(align=True)
+            row_dem_btn.scale_y = 1.2
+            row_dem_btn.operator(
+                "track_maker.download_terrain_dem",
+                text="Descargar Terreno Corredor A-B",
+                icon="IMPORT",
+            )
+
+            # 1.3 Trazado Manual OSRM
+            box_osm = layout.box()
+            box_osm.label(text="3. Carretera Real (Trazado Spline)", icon="CURVE_PATH")
+            row_osrm_btn = box_osm.row(align=True)
+            row_osrm_btn.scale_y = 1.3
+            row_osrm_btn.operator(
+                "track_maker.fetch_osrm_route",
+                text="Trazar Ruta Real A ➔ B (OSRM)",
+                icon="AUTO",
+            )
+            col_extra = box_osm.column(align=True)
+            col_extra.prop(gis_cfg, "osm_snap_to_terrain")
+            row_osm_btn = box_osm.row(align=True)
+            row_osm_btn.operator(
+                "track_maker.import_osm_roads",
+                text="Importar Red de Vías del Corredor (Overpass)",
+                icon="CURVE_DATA",
+            )
+
+        # ---------------------------------------------------------
+        # 1. MODO RADIO (CIRCUITO CERRADO O ÁREA GEOGRÁFICA)
+        # ---------------------------------------------------------
+        else:
             box_search = layout.box()
             box_search.label(text="1. Localización GPS (Nominatim)", icon="VIEWZOOM")
 
@@ -79,63 +132,24 @@ class TRACKMAKER_PT_GISPanel(bpy.types.Panel):
             row_set_anchor = box_search.row(align=True)
             row_set_anchor.operator("track_maker.set_anchor_from_gps", text="Fijar Ancla desde GPS", icon="PINNED")
 
-        # ---------------------------------------------------------
-        # 2. DESCARGA TOPOGRAFÍA DEM (AWS TERRARIUM)
-        # ---------------------------------------------------------
-        box_dem = layout.box()
-        box_dem.label(text="2. Relieve Terreno 3D (AWS DEM)", icon="WORLD")
-
-        row_dem_detail = box_dem.row(align=True)
-        row_dem_detail.prop(gis_cfg, "dem_zoom")
-        row_dem_detail.prop(gis_cfg, "terrain_resolution")
-
-        box_dem.prop(gis_cfg, "vertical_scale")
-
-        row_dem_btn = box_dem.row(align=True)
-        row_dem_btn.scale_y = 1.3
-        btn_dem_text = "Descargar Terreno Corredor A-B" if gis_cfg.coverage_mode == "POINTS_AB" else "Descargar Terreno 3D (DEM)"
-        row_dem_btn.operator(
-            "track_maker.download_terrain_dem",
-            text=btn_dem_text,
-            icon="IMPORT",
-        )
-
-        # ---------------------------------------------------------
-        # 3. CARRETERAS Y CIRCUITOS (OSM / OSRM)
-        # ---------------------------------------------------------
-        box_osm = layout.box()
-        box_osm.label(text="3. Carreteras y Trazados Reales", icon="CURVE_PATH")
-
-        if gis_cfg.coverage_mode == "POINTS_AB":
-            # Botón destacado OSRM para ruta exacta de conducción
-            row_osrm_btn = box_osm.row(align=True)
-            row_osrm_btn.scale_y = 1.35
-            row_osrm_btn.operator(
-                "track_maker.fetch_osrm_route",
-                text="Trazar Ruta Real A ➔ B (OSRM)",
-                icon="AUTO",
-            )
-            box_osm.label(text="Calcula la carretera transitable exacta entre A y B.", icon="INFO")
-
-            # Opción secundaria Overpass de corredor
-            col_extra = box_osm.column(align=True)
-            col_extra.prop(gis_cfg, "osm_snap_to_terrain")
-            row_osm_btn = box_osm.row(align=True)
-            row_osm_btn.operator(
-                "track_maker.import_osm_roads",
-                text="Importar Red de Vías del Corredor (Overpass)",
-                icon="CURVE_DATA",
+            # Relieve DEM
+            box_dem = layout.box()
+            box_dem.label(text="2. Relieve Terreno 3D (AWS DEM)", icon="WORLD")
+            row_dem_detail = box_dem.row(align=True)
+            row_dem_detail.prop(gis_cfg, "dem_zoom")
+            row_dem_detail.prop(gis_cfg, "terrain_resolution")
+            box_dem.prop(gis_cfg, "vertical_scale")
+            row_dem_btn = box_dem.row(align=True)
+            row_dem_btn.scale_y = 1.3
+            row_dem_btn.operator(
+                "track_maker.download_terrain_dem",
+                text="Descargar Terreno 3D (DEM)",
+                icon="IMPORT",
             )
 
-        if gis_cfg.route_info_distance > 0:
-            box_alti = layout.box()
-            box_alti.label(text="Perfil Altimétrico Real", icon="GRAPH")
-            col_al = box_alti.column(align=True)
-            col_al.label(text=f"Longitud: {gis_cfg.route_info_distance:.2f} km | Desnivel: {gis_cfg.route_info_climb:.1f} m", icon="TRACKING_FORWARDS")
-            col_al.label(text=f"Cota: {gis_cfg.route_info_min_elev:.0f} m a {gis_cfg.route_info_max_elev:.0f} m", icon="DRIVER_DISTANCE")
-            col_al.label(text=f"Pendiente Máxima: {gis_cfg.route_info_max_grade:.1f}%", icon="IPO_BEZIER")
-
-        else:  # Modo RADIUS
+            # Carreteras OSM
+            box_osm = layout.box()
+            box_osm.label(text="3. Carreteras y Circuitos OSM", icon="CURVE_PATH")
             col_osm_opts = box_osm.column(align=True)
             col_osm_opts.prop(gis_cfg, "osm_road_type")
             if gis_cfg.osm_road_type == "CUSTOM":
@@ -144,7 +158,6 @@ class TRACKMAKER_PT_GISPanel(bpy.types.Panel):
             row_osm_geom = col_osm_opts.row(align=True)
             row_osm_geom.prop(gis_cfg, "osm_radius_m")
             row_osm_geom.prop(gis_cfg, "osm_curve_type")
-
             col_osm_opts.prop(gis_cfg, "osm_snap_to_terrain")
 
             row_osm_btn = box_osm.row(align=True)
@@ -156,10 +169,42 @@ class TRACKMAKER_PT_GISPanel(bpy.types.Panel):
             )
 
         # ---------------------------------------------------------
+        # HERRAMIENTAS DE DIBUJO LIBRE SOBRE RELIEVE REAL
+        # ---------------------------------------------------------
+        box_draw = layout.box()
+        box_draw.label(text="Diseño Libre sobre Terreno Real", icon="GREASEPENCIL")
+        row_draw = box_draw.row(align=True)
+        row_draw.scale_y = 1.3
+        row_draw.operator(
+            "track_maker.start_surface_draw",
+            text="✏️ Dibujar Pista sobre Terreno",
+            icon="BRUSH_DATA",
+        )
+
+        row_draw_tools = box_draw.row(align=True)
+        row_draw_tools.operator("track_maker.finish_surface_draw", text="Finalizar", icon="CHECKMARK")
+        row_draw_tools.operator("track_maker.smooth_spline", text="Suavizar", icon="SMOOTHSURF")
+        row_draw_tools.operator("track_maker.project_curve_to_terrain", text="Proyectar Z", icon="SNAP_ON")
+
+        row_draw_gates = box_draw.row(align=True)
+        row_draw_gates.operator("track_maker.auto_place_ab_gates", text="🏁 Puertas Salida/Meta AC", icon="EMPTY_DATA")
+
+        # ---------------------------------------------------------
+        # PERFIL ALTIMÉTRICO EN VIVO
+        # ---------------------------------------------------------
+        if gis_cfg.route_info_distance > 0:
+            box_alti = layout.box()
+            box_alti.label(text="Perfil Altimétrico Real", icon="GRAPH")
+            col_al = box_alti.column(align=True)
+            col_al.label(text=f"Longitud: {gis_cfg.route_info_distance:.2f} km | Desnivel: {gis_cfg.route_info_climb:.1f} m", icon="TRACKING_FORWARDS")
+            col_al.label(text=f"Cota: {gis_cfg.route_info_min_elev:.0f} m a {gis_cfg.route_info_max_elev:.0f} m", icon="DRIVER_DISTANCE")
+            col_al.label(text=f"Pendiente Máxima: {gis_cfg.route_info_max_grade:.1f}%", icon="IPO_BEZIER")
+
+        # ---------------------------------------------------------
         # 4. CONTROL DE VISOR 3D Y ESCALA REAL (ANTI-RECORTE)
         # ---------------------------------------------------------
         box_view = layout.box()
-        box_view.label(text="4. Control de Visor 3D (Escala Real)", icon="VIEW_CAMERA")
+        box_view.label(text="Control de Visor 3D (Escala Real)", icon="VIEW_CAMERA")
 
         row_frame = box_view.row(align=True)
         row_frame.scale_y = 1.2
@@ -178,7 +223,7 @@ class TRACKMAKER_PT_GISPanel(bpy.types.Panel):
         # 5. ANCLA GEORREFERENCIADA (ANTI-JITTER)
         # ---------------------------------------------------------
         box_anchor = layout.box()
-        box_anchor.label(text="5. Ancla Georreferenciada (Anti-Jitter)", icon="ORIENTATION_GIMBAL")
+        box_anchor.label(text="Ancla Georreferenciada (Anti-Jitter)", icon="ORIENTATION_GIMBAL")
 
         row_status = box_anchor.row()
         if gis_cfg.has_anchor:
@@ -206,7 +251,7 @@ class TRACKMAKER_PT_GISPanel(bpy.types.Panel):
         # 6. PROYECCIÓN Y SUAVIZADO TERRENO
         # ---------------------------------------------------------
         box_snap = layout.box()
-        box_snap.label(text="6. Adaptación y Suavizado Terreno", icon="MESH_ICOSPHERE")
+        box_snap.label(text="Adaptación y Suavizado Terreno", icon="MESH_ICOSPHERE")
 
         box_snap.prop_search(
             gis_cfg,

@@ -21,7 +21,11 @@ class MockVector:
 
 # Mockear módulos de Blender si no estamos dentro de Blender
 if "bpy" not in sys.modules:
-    sys.modules["bpy"] = MagicMock()
+    mock_bpy = MagicMock()
+    mock_bpy.types.Operator = type("Operator", (), {})
+    mock_bpy.types.Panel = type("Panel", (), {})
+    mock_bpy.types.PropertyGroup = type("PropertyGroup", (), {})
+    sys.modules["bpy"] = mock_bpy
     sys.modules["bpy.props"] = MagicMock()
 
 if "bmesh" not in sys.modules:

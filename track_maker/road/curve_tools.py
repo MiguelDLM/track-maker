@@ -232,11 +232,355 @@ class TRACKMAKER_OT_AutoBankCurve(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class TRACKMAKER_OT_StartSurfaceDraw(bpy.types.Operator):
+    """Inicia el modo interactivo para dibujar la curva del circuito directamente sobre el relieve 3D."""
+
+    bl_idname = "track_maker.start_surface_draw"
+    bl_label = "Dibujar Pista sobre Terreno"
+    bl_description = "Activa el pincel de curvas con proyección sobre la superficie de la montaña"
+    bl_options = {"REGISTER", "UNDO"}
+
+    curve_name: bpy.props.StringProperty(
+        name="Nombre del Trazado",
+        default="Spline_Pista_Terreno",
+    )
+
+    offset_z: bpy.props.FloatProperty(
+        name="Desfase sobre Terreno (m)",
+        default=0.08,
+        min=0.01,
+        max=1.0,
+        unit="LENGTH",
+    )
+
+    new_curve: bpy.props.BoolProperty(
+        name="Crear Nueva Curva",
+        description="Crea un objeto de curva nuevo e independiente en lugar de modificar la activa",
+        default=True,
+    )
+
+    def execute(self, context):
+        # 1. Localizar objeto de terreno objetivo
+        gis_cfg = getattr(context.scene, "track_maker_gis", None)
+        target_name = getattr(gis_cfg, "target_terrain_name", "TM_Terrain") if gis_cfg else "TM_Terrain"
+        terrain_obj = bpy.data.objects.get(target_name)
+
+        if not terrain_obj or terrain_obj.type != "MESH":
+            for obj in bpy.data.objects:
+                if obj.type == "MESH" and obj.get("gis_is_terrain", False):
+                    terrain_obj = obj
+                    break
+
+        if not terrain_obj and context.active_object and context.active_object.type == "MESH":
+            terrain_obj = context.active_object
+
+        if not terrain_obj:
+            self.report(
+                {"WARNING"},
+                "No se encontró terreno 3D en la escena ('TM_Terrain'). Crea o importa un terreno primero.",
+            )
+
+        # 2. Obtener o crear el objeto de curva
+        active_obj = context.active_object
+        if not self.new_curve and active_obj and active_obj.type == "CURVE":
+            curve_obj = active_obj
+        else:
+            curve_data = bpy.data.curves.new(name=f"{self.curve_name}_Data", type="CURVE")
+            curve_data.dimensions = "3D"
+            curve_data.twist_mode = "MINIMUM"
+            curve_data.resolution_u = 24
+            curve_obj = bpy.data.objects.new(self.curve_name, curve_data)
+            curve_obj["track_element_type"] = "ROAD_SPLINE"
+
+            col = get_or_create_collection(COLLECTION_ROAD_VISUAL, parent_name=COLLECTION_ROOT)
+            col.objects.link(curve_obj)
+
+        # 3. Configurar ajustes de pintura de curva sobre superficie en Blender
+        tool_settings = context.scene.tool_settings
+        if hasattr(tool_settings, "curve_paint_settings"):
+            cps = tool_settings.curve_paint_settings
+            cps.depth_mode = "SURFACE"
+            cps.surface_offset = self.offset_z
+            cps.use_offset_absolute = True
+            cps.curve_type = "BEZIER"
+            if hasattr(cps, "use_corners_detect"):
+                cps.use_corners_detect = False
+
+        # Configurar ajuste magnético (snapping)
+        tool_settings.use_snap = True
+        try:
+            tool_settings.snap_elements = {'FACE_PROJECT'}
+        except Exception:
+            try:
+                tool_settings.snap_elements = {'FACE'}
+            except Exception:
+                pass
+
+        # 4. Seleccionar la curva y entrar en modo EDIT
+        for o in context.selected_objects:
+            o.select_set(False)
+        curve_obj.select_set(True)
+        context.view_layer.objects.active = curve_obj
+
+        if curve_obj.mode != "EDIT":
+            bpy.ops.object.mode_set(mode="EDIT")
+
+        # 5. Activar la herramienta builtin.draw
+        view3d_area = next((a for a in context.screen.areas if a.type == "VIEW_3D"), None) if context.screen else None
+        try:
+            if view3d_area:
+                with context.temp_override(area=view3d_area):
+                    bpy.ops.wm.tool_set_by_id(name="builtin.draw")
+            else:
+                bpy.ops.wm.tool_set_by_id(name="builtin.draw")
+        except Exception:
+            pass
+
+        self.report(
+            {"INFO"},
+            "✏️ Modo Dibujo activado: Haz clic y arrastra con el ratón sobre el relieve para trazar tu circuito.",
+        )
+        return {"FINISHED"}
+
+
+class TRACKMAKER_OT_FinishSurfaceDraw(bpy.types.Operator):
+    """Finaliza el dibujo de pista interactivo, saliendo del modo edición y ajustando las tangentes."""
+
+    bl_idname = "track_maker.finish_surface_draw"
+    bl_label = "Finalizar Dibujo de Pista"
+    bl_description = "Sale del modo edición y optimiza los puntos dibujados"
+    bl_options = {"REGISTER", "UNDO"}
+
+    auto_handles: bpy.props.BoolProperty(
+        name="Suavizar Tangentes (Auto)",
+        default=True,
+    )
+
+    def execute(self, context):
+        active = context.active_object
+        if not active or active.type != "CURVE":
+            self.report({"ERROR"}, "Selecciona un objeto de Curva.")
+            return {"CANCELLED"}
+
+        if active.mode == "EDIT":
+            bpy.ops.object.mode_set(mode="OBJECT")
+
+        curve = active.data
+        total_pts = 0
+        pts_coords = []
+        for spline in curve.splines:
+            if spline.type == "BEZIER":
+                for bp in spline.bezier_points:
+                    if self.auto_handles:
+                        bp.handle_left_type = "AUTO"
+                        bp.handle_right_type = "AUTO"
+                    pts_coords.append(active.matrix_world @ bp.co)
+                    total_pts += 1
+            elif spline.type == "POLY":
+                for p in spline.points:
+                    pts_coords.append(active.matrix_world @ p.co.to_3d())
+                    total_pts += 1
+
+        # Actualizar telemetría si se dibujaron puntos
+        if len(pts_coords) >= 2:
+            total_dist_m = 0.0
+            for i in range(1, len(pts_coords)):
+                total_dist_m += (pts_coords[i] - pts_coords[i - 1]).length
+            gis_cfg = getattr(context.scene, "track_maker_gis", None)
+            if gis_cfg:
+                gis_cfg.route_info_distance = total_dist_m / 1000.0
+                v_scale = getattr(gis_cfg, "vertical_scale", 1.0) or 1.0
+                base_z = getattr(gis_cfg, "anchor_elevation_z", 0.0) or 0.0
+                real_alts = [(p.z / v_scale) + base_z for p in pts_coords]
+                gis_cfg.route_info_min_elev = min(real_alts)
+                gis_cfg.route_info_max_elev = max(real_alts)
+                gis_cfg.route_info_climb = max(real_alts) - min(real_alts)
+
+        self.report({"INFO"}, f"✅ Trazado completado con {total_pts} puntos de control.")
+        return {"FINISHED"}
+
+
+class TRACKMAKER_OT_ProjectCurveToTerrain(bpy.types.Operator):
+    """Proyecta todos los puntos de la curva sobre la superficie de la malla de terreno (Raycast BVH)."""
+
+    bl_idname = "track_maker.project_curve_to_terrain"
+    bl_label = "Proyectar Curva sobre el Terreno"
+    bl_description = "Ajusta la altura Z de cada punto del trazado a la cota exacta de la montaña subyacente"
+    bl_options = {"REGISTER", "UNDO"}
+
+    offset_z: bpy.props.FloatProperty(
+        name="Desfase sobre Terreno (m)",
+        default=0.08,
+        min=0.0,
+        max=2.0,
+        unit="LENGTH",
+    )
+
+    def execute(self, context):
+        active = context.active_object
+        if not active or active.type != "CURVE":
+            self.report({"ERROR"}, "Selecciona un objeto de Curva para proyectar.")
+            return {"CANCELLED"}
+
+        was_edit = (active.mode == "EDIT")
+        if was_edit:
+            bpy.ops.object.mode_set(mode="OBJECT")
+
+        gis_cfg = getattr(context.scene, "track_maker_gis", None)
+        target_name = getattr(gis_cfg, "target_terrain_name", "TM_Terrain") if gis_cfg else "TM_Terrain"
+        terrain_obj = bpy.data.objects.get(target_name)
+
+        if not terrain_obj or terrain_obj.type != "MESH":
+            for obj in bpy.data.objects:
+                if obj.type == "MESH" and (obj.get("gis_is_terrain", False) or "terrain" in obj.name.lower()):
+                    terrain_obj = obj
+                    break
+
+        if not terrain_obj or terrain_obj.type != "MESH":
+            self.report({"ERROR"}, "No se encontró ningún objeto de terreno tipo MESH en la escena.")
+            return {"CANCELLED"}
+
+        from mathutils import bvhtree
+        depsgraph = context.evaluated_depsgraph_get()
+        bvh = bvhtree.BVHTree.FromObject(terrain_obj, depsgraph)
+        mat_terrain = terrain_obj.matrix_world
+        inv_terrain = mat_terrain.inverted()
+        mat_curve = active.matrix_world
+        inv_curve = mat_curve.inverted()
+
+        projected_count = 0
+        curve_data = active.data
+
+        for spline in curve_data.splines:
+            if spline.type == "BEZIER":
+                for bp in spline.bezier_points:
+                    pt_world = mat_curve @ bp.co
+                    ray_origin_w = Vector((pt_world.x, pt_world.y, 10000.0))
+                    ray_dir_w = Vector((0.0, 0.0, -1.0))
+
+                    ray_orig_loc = inv_terrain @ ray_origin_w
+                    ray_dir_loc = (inv_terrain.to_3x3() @ ray_dir_w).normalized()
+
+                    hit_loc, _, _, _ = bvh.ray_cast(ray_orig_loc, ray_dir_loc)
+                    if hit_loc:
+                        hit_world = mat_terrain @ hit_loc
+                        new_pt_world = Vector((pt_world.x, pt_world.y, hit_world.z + self.offset_z))
+                        delta_co = (inv_curve @ new_pt_world) - bp.co
+                        bp.co += delta_co
+                        bp.handle_left += delta_co
+                        bp.handle_right += delta_co
+                        projected_count += 1
+            elif spline.type == "POLY":
+                for p in spline.points:
+                    pt_world = mat_curve @ p.co.to_3d()
+                    ray_origin_w = Vector((pt_world.x, pt_world.y, 10000.0))
+                    ray_dir_w = Vector((0.0, 0.0, -1.0))
+
+                    ray_orig_loc = inv_terrain @ ray_origin_w
+                    ray_dir_loc = (inv_terrain.to_3x3() @ ray_dir_w).normalized()
+
+                    hit_loc, _, _, _ = bvh.ray_cast(ray_orig_loc, ray_dir_loc)
+                    if hit_loc:
+                        hit_world = mat_terrain @ hit_loc
+                        new_pt_world = Vector((pt_world.x, pt_world.y, hit_world.z + self.offset_z))
+                        p.co = (inv_curve @ new_pt_world).to_4d()
+                        projected_count += 1
+
+        if was_edit:
+            bpy.ops.object.mode_set(mode="EDIT")
+
+        self.report({"INFO"}, f"📐 {projected_count} puntos proyectados con éxito sobre '{terrain_obj.name}'.")
+        return {"FINISHED"}
+
+
+class TRACKMAKER_OT_SmoothSpline(bpy.types.Operator):
+    """Suaviza el trazado de la curva activa para eliminar sacudidas y mejorar las trazadas de competición."""
+
+    bl_idname = "track_maker.smooth_spline"
+    bl_label = "Suavizar Trazado"
+    bl_description = "Aplica suavizado a los puntos de control del trazado"
+    bl_options = {"REGISTER", "UNDO"}
+
+    iterations: bpy.props.IntProperty(
+        name="Iteraciones",
+        default=2,
+        min=1,
+        max=10,
+    )
+
+    def execute(self, context):
+        active = context.active_object
+        if not active or active.type != "CURVE":
+            self.report({"ERROR"}, "Selecciona un objeto de Curva.")
+            return {"CANCELLED"}
+
+        was_edit = (active.mode == "EDIT")
+        if not was_edit:
+            bpy.ops.object.mode_set(mode="EDIT")
+
+        bpy.ops.curve.select_all(action="SELECT")
+        for _ in range(self.iterations):
+            try:
+                bpy.ops.curve.smooth()
+            except Exception:
+                pass
+
+        if not was_edit:
+            bpy.ops.object.mode_set(mode="OBJECT")
+
+        self.report({"INFO"}, f"〰️ Trazado suavizado ({self.iterations} pasadas).")
+        return {"FINISHED"}
+
+
+class TRACKMAKER_OT_AutoPlaceABGates(bpy.types.Operator):
+    """Coloca automáticamente las puertas de Salida y Meta (AC_AB_START / AC_AB_FINISH) en la curva activa."""
+
+    bl_idname = "track_maker.auto_place_ab_gates"
+    bl_label = "Colocar Puertas Salida/Meta AC"
+    bl_description = "Crea los objetos AC_AB_START_L/R y AC_AB_FINISH_L/R en los extremos del tramo"
+    bl_options = {"REGISTER", "UNDO"}
+
+    gate_width: bpy.props.FloatProperty(
+        name="Anchura de Puerta (m)",
+        default=16.0,
+        min=4.0,
+        max=50.0,
+        unit="LENGTH",
+    )
+
+    def execute(self, context):
+        active = context.active_object
+        if not active or active.type != "CURVE":
+            self.report({"ERROR"}, "Selecciona un objeto de Curva para colocar las puertas.")
+            return {"CANCELLED"}
+
+        from ..gis.stage_builder import place_ab_timing_gates_on_curve
+
+        try:
+            gates = place_ab_timing_gates_on_curve(context, active, gate_width=self.gate_width)
+            if hasattr(context.scene, "track_maker_circuit"):
+                context.scene.track_maker_circuit.circuit_type = "HILLCLIMB_AB"
+
+            self.report(
+                {"INFO"},
+                f"🏁 Puertas de tramo creadas en '{active.name}': {gates[0].name}, {gates[2].name}.",
+            )
+            return {"FINISHED"}
+        except Exception as e:
+            self.report({"ERROR"}, f"Error colocando puertas AC: {e}")
+            return {"CANCELLED"}
+
+
 classes = (
     TRACKMAKER_OT_CreateRoadSpline,
     TRACKMAKER_OT_ToggleSplineCyclic,
     TRACKMAKER_OT_SetCurveTilt,
     TRACKMAKER_OT_AutoBankCurve,
+    TRACKMAKER_OT_StartSurfaceDraw,
+    TRACKMAKER_OT_FinishSurfaceDraw,
+    TRACKMAKER_OT_ProjectCurveToTerrain,
+    TRACKMAKER_OT_SmoothSpline,
+    TRACKMAKER_OT_AutoPlaceABGates,
 )
 
 

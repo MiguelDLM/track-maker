@@ -28,7 +28,15 @@ class TRACKMAKER_PT_RoadPanel(bpy.types.Panel):
 
         row_sp_create = box_spline.row(align=True)
         row_sp_create.operator("track_maker.create_road_spline", text="Crear Spline Base", icon="ADD")
-        row_sp_create.operator("track_maker.toggle_spline_cyclic", text="Abierto / Cerrado", icon="LOOP_FORWARDS")
+        row_sp_create.operator("track_maker.start_surface_draw", text="✏️ Dibujar sobre Terreno", icon="BRUSH_DATA")
+
+        row_sp_tools = box_spline.row(align=True)
+        row_sp_tools.operator("track_maker.toggle_spline_cyclic", text="Abierto / Cerrado", icon="LOOP_FORWARDS")
+        row_sp_tools.operator("track_maker.smooth_spline", text="Suavizar", icon="SMOOTHSURF")
+        row_sp_tools.operator("track_maker.project_curve_to_terrain", text="Proyectar Z", icon="SNAP_ON")
+
+        row_gates = box_spline.row(align=True)
+        row_gates.operator("track_maker.auto_place_ab_gates", text="🏁 Puertas Salida/Meta AC", icon="EMPTY_DATA")
 
         # Control de Peralte (Tilt / Banking)
         box_tilt = box_spline.box()
