@@ -73,6 +73,19 @@ def local_to_utm(local_x: float, local_y: float, local_z: float, anchor_x: float
     return (local_x + anchor_x, local_y + anchor_y, local_z + anchor_z)
 
 
+def get_geo_anchor(context: bpy.types.Context) -> tuple[float, float, float, float, float, float]:
+    """Retorna (lat, lon, elev, utm_x, utm_y, utm_z) del ancla activa."""
+    gis = context.scene.track_maker_gis
+    return (
+        getattr(gis, "anchor_lat", 0.0),
+        getattr(gis, "anchor_lon", 0.0),
+        getattr(gis, "anchor_elevation", 0.0),
+        getattr(gis, "anchor_utm_x", 0.0),
+        getattr(gis, "anchor_utm_y", 0.0),
+        getattr(gis, "anchor_utm_z", 0.0),
+    )
+
+
 class TRACKMAKER_OT_SetGeoAnchor(bpy.types.Operator):
     """Establece las coordenadas del Ancla Georreferenciada para el origen (0, 0, 0) de la escena."""
 

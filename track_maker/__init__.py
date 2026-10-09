@@ -33,6 +33,7 @@ from . import core
 from . import race_nodes
 from . import road
 from . import gis
+from . import assets
 from . import exporters
 from . import ui
 
@@ -41,6 +42,7 @@ modules = (
     race_nodes,
     road,
     gis,
+    assets,
     exporters,
     ui,
 )

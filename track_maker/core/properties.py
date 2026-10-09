@@ -601,12 +601,120 @@ class TrackMakerExportSettings(bpy.types.PropertyGroup):
     )
 
 
+class TrackMakerPropsSettings(bpy.types.PropertyGroup):
+    """Configuración para barreras, señalética, iluminación, edificios y fotogrametría."""
+
+    barrier_type: EnumProperty(
+        name="Tipo de Barrera",
+        description="Modelo de contención a generar",
+        items=[
+            ("NEW_JERSEY", "Barrera New Jersey (Concreto)", "Muro central de concreto con vialetas reflectivas"),
+            ("ARMCO", "Barrera Metálica Armco (SCT)", "Guarda-vía de acero galvanizado con perfil W-Beam"),
+        ],
+        default="NEW_JERSEY",
+    )
+
+    barrier_side: EnumProperty(
+        name="Ubicación",
+        description="Posición relativa a la calzada",
+        items=[
+            ("CENTER", "Mediana Central", "En el centro de la calzada (camellón)"),
+            ("BOTH", "Ambos Lados", "En los dos márgenes exteriores"),
+            ("LEFT", "Lado Izquierdo", "Solo en el margen izquierdo"),
+            ("RIGHT", "Lado Derecho", "Solo en el margen derecho"),
+        ],
+        default="CENTER",
+    )
+
+    barrier_offset: FloatProperty(
+        name="Desfase Lateral",
+        description="Separación adicional en metros respecto al borde o centro",
+        default=0.0,
+        min=-10.0,
+        max=20.0,
+        unit="LENGTH",
+    )
+
+    speed_limit: EnumProperty(
+        name="Límite de Velocidad",
+        description="Velocidad máxima reglamentaria SCT",
+        items=[
+            ("60", "60 km/h", "Zona urbana / curvas"),
+            ("80", "80 km/h", "Carretera estándar / libramiento"),
+            ("100", "100 km/h", "Autopista de altas especificaciones"),
+        ],
+        default="80",
+    )
+
+    gantry_interval: FloatProperty(
+        name="Distancia entre Pórticos",
+        description="Separación en metros entre pórticos monumentales SCT",
+        default=1200.0,
+        min=200.0,
+        max=5000.0,
+        unit="LENGTH",
+    )
+
+    light_spacing: FloatProperty(
+        name="Distancia entre Luminarias",
+        description="Separación en metros entre postes de alumbrado",
+        default=40.0,
+        min=15.0,
+        max=100.0,
+        unit="LENGTH",
+    )
+
+    light_placement: EnumProperty(
+        name="Posición de Luminarias",
+        items=[
+            ("CENTER", "Mediana Central (Doble Brazo)", "Poste central con dos lámparas sobre los carriles"),
+            ("RIGHT", "Margen Derecho", "Poste lateral en el hombro derecho"),
+            ("LEFT", "Margen Izquierdo", "Poste lateral en el hombro izquierdo"),
+        ],
+        default="CENTER",
+    )
+
+    building_spacing: FloatProperty(
+        name="Paso entre Parcelas",
+        description="Intervalo de muestreo a lo largo de la ruta para colocar edificios",
+        default=120.0,
+        min=30.0,
+        max=500.0,
+        unit="LENGTH",
+    )
+
+    building_setback: FloatProperty(
+        name="Retranqueo (Distancia a Calzada)",
+        description="Distancia en metros desde el borde del asfalto hasta la fachada",
+        default=24.0,
+        min=8.0,
+        max=100.0,
+        unit="LENGTH",
+    )
+
+    building_density: FloatProperty(
+        name="Densidad de Edificios",
+        description="Probabilidad de poblar edificios a lo largo del recorrido (0 = vacío, 1 = denso)",
+        default=0.65,
+        min=0.05,
+        max=1.0,
+    )
+
+    google_maps_api_key: StringProperty(
+        name="Google Maps API Key",
+        description="Clave de API de Google Cloud para Photorealistic 3D Tiles",
+        default="",
+        subtype="PASSWORD",
+    )
+
+
 classes = (
     TrackMakerCircuitSettings,
     TrackMakerSpawnSettings,
     TrackMakerTimingSettings,
     TrackMakerRoadSettings,
     TrackMakerGISSettings,
+    TrackMakerPropsSettings,
     TrackMakerExportSettings,
 )
 
@@ -620,11 +728,12 @@ def register():
     bpy.types.Scene.track_maker_timing = PointerProperty(type=TrackMakerTimingSettings)
     bpy.types.Scene.track_maker_road = PointerProperty(type=TrackMakerRoadSettings)
     bpy.types.Scene.track_maker_gis = PointerProperty(type=TrackMakerGISSettings)
+    bpy.types.Scene.track_maker_props = PointerProperty(type=TrackMakerPropsSettings)
     bpy.types.Scene.track_maker_export = PointerProperty(type=TrackMakerExportSettings)
 
 
 def unregister():
-    for attr in ("track_maker_circuit", "track_maker_spawns", "track_maker_timing", "track_maker_road", "track_maker_gis", "track_maker_export"):
+    for attr in ("track_maker_circuit", "track_maker_spawns", "track_maker_timing", "track_maker_road", "track_maker_gis", "track_maker_props", "track_maker_export"):
         if hasattr(bpy.types.Scene, attr):
             delattr(bpy.types.Scene, attr)
 

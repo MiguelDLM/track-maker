@@ -10,6 +10,11 @@ COLLECTION_RACE_NODES = "TM_RaceNodes"
 COLLECTION_ROAD_VISUAL = "TM_Road_Visual"
 COLLECTION_ROAD_PHYSICS = "TM_Road_Physics"
 COLLECTION_TERRAIN = "TM_Terrain"
+COLLECTION_BARRIERS = "TM_Barriers"
+COLLECTION_SIGNS = "TM_Signage"
+COLLECTION_LIGHTING = "TM_Lighting"
+COLLECTION_BUILDINGS = "TM_Buildings"
+COLLECTION_PHOTOGRAMMETRY = "TM_Photogrammetry"
 
 # Prefijos de Mallas Físicas de Assetto Corsa
 PREFIX_PHYS_ROAD = "1ROAD_"
@@ -121,6 +126,20 @@ SURFACE_DEFAULTS = {
         "SIN_HEIGHT": 0.0,
         "SIN_LENGTH": 0.0,
         "IS_PITLANE": 1,
+        "VIBRATION_GAIN": 0.0,
+        "VIBRATION_LENGTH": 0.0,
+    },
+    "WALL": {
+        "FRICTION": 0.10,
+        "DAMPING": 0.0,
+        "WAV_PITCH": 0.0,
+        "FF_EFFECT": "NULL",
+        "DIRT_ADD": 0.0,
+        "IS_VALID_TRACK": 0,
+        "BLACK_FLAG_TIME": 0,
+        "SIN_HEIGHT": 0.0,
+        "SIN_LENGTH": 0.0,
+        "IS_PITLANE": 0,
         "VIBRATION_GAIN": 0.0,
         "VIBRATION_LENGTH": 0.0,
     },

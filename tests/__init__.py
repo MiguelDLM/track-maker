@@ -19,17 +19,79 @@ class MockVector:
         return f"MockVector(({self.x}, {self.y}, {self.z}))"
 
 
+class MockMesh:
+    def __init__(self, name="Mesh"):
+        self.name = name
+        self.vertices = []
+        self.polygons = []
+        self.materials = []
+
+
+def mock_new_mesh(name):
+    return MockMesh(name)
+
+
+def mock_new_material(name):
+    mat = MagicMock()
+    mat.name = name
+    return mat
+
+
 # Mockear módulos de Blender si no estamos dentro de Blender
 if "bpy" not in sys.modules:
     mock_bpy = MagicMock()
     mock_bpy.types.Operator = type("Operator", (), {})
     mock_bpy.types.Panel = type("Panel", (), {})
     mock_bpy.types.PropertyGroup = type("PropertyGroup", (), {})
+    mock_bpy.data.meshes.new.side_effect = mock_new_mesh
+    mock_bpy.data.materials.new.side_effect = mock_new_material
+    mock_bpy.data.materials.get.return_value = None
+    mock_bpy.data.meshes.get.return_value = None
     sys.modules["bpy"] = mock_bpy
     sys.modules["bpy.props"] = MagicMock()
 
+class MockBMVerts(list):
+    def new(self, co):
+        v = MagicMock()
+        v.co = co
+        self.append(v)
+        return v
+
+
+class MockBMFaces(list):
+    def new(self, verts):
+        f = MagicMock()
+        f.verts = verts
+        self.append(f)
+        return f
+
+
+class MockBMEdges(list):
+    def new(self, verts):
+        e = MagicMock()
+        e.verts = verts
+        self.append(e)
+        return e
+
+
+class MockBMesh:
+    def __init__(self):
+        self.verts = MockBMVerts()
+        self.faces = MockBMFaces()
+        self.edges = MockBMEdges()
+
+    def to_mesh(self, mesh):
+        mesh.vertices = list(self.verts)
+        mesh.polygons = list(self.faces)
+
+    def free(self):
+        pass
+
+
 if "bmesh" not in sys.modules:
-    sys.modules["bmesh"] = MagicMock()
+    mock_bmesh = MagicMock()
+    mock_bmesh.new.side_effect = MockBMesh
+    sys.modules["bmesh"] = mock_bmesh
 
 if "mathutils" not in sys.modules:
     mock_mathutils = MagicMock()
