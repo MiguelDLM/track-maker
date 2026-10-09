@@ -17,6 +17,8 @@ import bpy
 from mathutils import Vector, bvhtree
 
 from .geo_anchor import wgs84_to_utm
+from .viewport_tools import adjust_viewport_clipping, frame_active_object
+from .dem_downloader import bbox_from_points_ab
 
 OVERPASS_ENDPOINTS = [
     "https://overpass.openstreetmap.fr/api/interpreter",
@@ -31,14 +33,21 @@ DEFAULT_USER_AGENT = "TrackMaker/1.0 (Blender Addon; https://github.com/user/tra
 def query_overpass_api(
     lat: float,
     lon: float,
-    radius_m: float,
+    radius_m: float = 2000.0,
+    bbox: Optional[Tuple[float, float, float, float]] = None,
     highway_filter: str = "raceway",
     timeout: int = 25,
 ) -> dict:
     """Envía una consulta a los servidores Overpass API con failover automático entre réplicas."""
+    if bbox is not None:
+        south, west, north, east = bbox
+        target_selector = f"{south:.6f},{west:.6f},{north:.6f},{east:.6f}"
+    else:
+        target_selector = f"around:{int(radius_m)},{lat:.6f},{lon:.6f}"
+
     query = f"""[out:json][timeout:{timeout}];
 (
-  way["highway"~"{highway_filter}"](around:{int(radius_m)},{lat:.6f},{lon:.6f});
+  way["highway"~"{highway_filter}"]({target_selector});
 );
 out body;
 >;
@@ -237,21 +246,33 @@ class TRACKMAKER_OT_ImportOSMRoads(bpy.types.Operator):
         else:  # CUSTOM
             filter_pattern = gis_cfg.osm_custom_filter or "raceway"
 
+        if gis_cfg.coverage_mode == "POINTS_AB":
+            lat_a, lon_a = gis_cfg.point_a_lat, gis_cfg.point_a_lon
+            lat_b, lon_b = gis_cfg.point_b_lat, gis_cfg.point_b_lon
+            center_lat = (lat_a + lat_b) / 2.0
+            center_lon = (lon_a + lon_b) / 2.0
+            bbox = bbox_from_points_ab(lat_a, lon_a, lat_b, lon_b, gis_cfg.corridor_margin_km)
+            self.report({"INFO"}, f"Consultando Overpass API tramo A-B ({filter_pattern}) con margen {gis_cfg.corridor_margin_km:.1f}km...")
+        else:
+            center_lat = gis_cfg.latitude
+            center_lon = gis_cfg.longitude
+            bbox = None
+            self.report({"INFO"}, f"Consultando Overpass API ({filter_pattern}) en Lat={center_lat:.5f}, Lon={center_lon:.5f}...")
+
         # Asegurar ancla fijada
         if not gis_cfg.has_anchor:
-            easting, northing, zone, hem = wgs84_to_utm(lat, lon)
+            easting, northing, zone, hem = wgs84_to_utm(center_lat, center_lon)
             gis_cfg.anchor_utm_x = easting
             gis_cfg.anchor_utm_y = northing
             gis_cfg.has_anchor = True
             gis_cfg.epsg_code = (32600 if hem == "N" else 32700) + zone
 
-        self.report({"INFO"}, f"Consultando Overpass API ({filter_pattern}) en Lat={lat:.5f}, Lon={lon:.5f}...")
-
         try:
             osm_data = query_overpass_api(
-                lat=lat,
-                lon=lon,
+                lat=center_lat,
+                lon=center_lon,
                 radius_m=radius,
+                bbox=bbox,
                 highway_filter=filter_pattern,
             )
 
@@ -266,7 +287,7 @@ class TRACKMAKER_OT_ImportOSMRoads(bpy.types.Operator):
                     ways.append(elem)
 
             if not ways:
-                self.report({"WARNING"}, f"No se encontraron vías con filtro '{filter_pattern}' en el radio especificado.")
+                self.report({"WARNING"}, f"No se encontraron vías con filtro '{filter_pattern}' en el área seleccionada.")
                 return {"CANCELLED"}
 
             # Encadenar tramos
@@ -292,6 +313,12 @@ class TRACKMAKER_OT_ImportOSMRoads(bpy.types.Operator):
             if created_objs:
                 created_objs[0].select_set(True)
                 context.view_layer.objects.active = created_objs[0]
+
+                if getattr(gis_cfg, "auto_adjust_clipping", True):
+                    max_span = max(created_objs[0].dimensions.x, created_objs[0].dimensions.y, 5000.0)
+                    adjust_viewport_clipping(context, max_span)
+                if getattr(gis_cfg, "auto_frame_view", True):
+                    frame_active_object(context)
 
             self.report(
                 {"INFO"},

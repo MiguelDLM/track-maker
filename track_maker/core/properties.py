@@ -332,13 +332,75 @@ class TrackMakerGISSettings(bpy.types.PropertyGroup):
         precision=6,
     )
 
+    # Modo de Cobertura Geográfica
+    coverage_mode: EnumProperty(
+        name="Modo de Cobertura",
+        description="Selecciona entre área radial (circuito cerrado) o tramo lineal entre dos puntos A y B",
+        items=[
+            ("RADIUS", "Centro y Radio (Circuito)", "Para autódromos y circuitos cerrados"),
+            ("POINTS_AB", "Tramo Punto A ➔ B (Carretera)", "Para tramos punto a punto (Hillclimb / Rally / Carretera)"),
+        ],
+        default="RADIUS",
+    )
+
+    # Coordenadas Punto A (Salida) y Punto B (Meta)
+    point_a_lat: FloatProperty(
+        name="Latitud Salida A",
+        description="Latitud GPS del punto de inicio / salida A",
+        default=20.530890,
+        precision=6,
+    )
+
+    point_a_lon: FloatProperty(
+        name="Longitud Salida A",
+        description="Longitud GPS del punto de inicio / salida A",
+        default=-103.293237,
+        precision=6,
+    )
+
+    point_b_lat: FloatProperty(
+        name="Latitud Meta B",
+        description="Latitud GPS del punto de llegada / meta B",
+        default=20.678863,
+        precision=6,
+    )
+
+    point_b_lon: FloatProperty(
+        name="Longitud Meta B",
+        description="Longitud GPS del punto de llegada / meta B",
+        default=-103.347552,
+        precision=6,
+    )
+
+    corridor_margin_km: FloatProperty(
+        name="Margen Corredor (km)",
+        description="Margen lateral extra en kilómetros alrededor del tramo A-B",
+        default=1.0,
+        min=0.1,
+        max=10.0,
+        unit="LENGTH",
+    )
+
+    # Ajuste de Visor y Escala Real
+    auto_adjust_clipping: bpy.props.BoolProperty(
+        name="Ajustar Visor Automáticamente",
+        description="Ajusta el límite lejano (clip_end) de los visores 3D para evitar que mallas kilométricas se corten o desaparezcan",
+        default=True,
+    )
+
+    auto_frame_view: bpy.props.BoolProperty(
+        name="Enfocar Vista Automáticamente",
+        description="Centra y encuadra la vista 3D sobre la geometría generada",
+        default=True,
+    )
+
     # Descarga DEM (AWS Terrarium)
     terrain_radius_km: FloatProperty(
         name="Radio Terreno (km)",
-        description="Radio de cobertura del terreno DEM en kilómetros",
+        description="Radio de cobertura del terreno DEM en kilómetros (Modo Radio)",
         default=2.0,
         min=0.5,
-        max=15.0,
+        max=25.0,
         unit="LENGTH",
     )
 

@@ -20,6 +20,7 @@ from mathutils import Vector
 
 from .png_decoder import decode_png_rgb
 from .geo_anchor import wgs84_to_utm
+from .viewport_tools import adjust_viewport_clipping, frame_active_object
 
 TERRARIUM_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 DEFAULT_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) TrackMaker/1.0 (Blender Addon; migueldlm1307@gmail.com)"
@@ -50,6 +51,27 @@ def bbox_from_center(center_lat: float, center_lon: float, radius_km: float) -> 
     max_lat = min(85.0, center_lat + delta_lat_deg)
     min_lon = max(-180.0, center_lon - delta_lon_deg)
     max_lon = min(180.0, center_lon + delta_lon_deg)
+    return min_lat, min_lon, max_lat, max_lon
+
+
+def bbox_from_points_ab(
+    lat_a: float,
+    lon_a: float,
+    lat_b: float,
+    lon_b: float,
+    margin_km: float = 1.0,
+) -> Tuple[float, float, float, float]:
+    """Calcula bounding box con margen alrededor del corredor que une el Punto A y el Punto B."""
+    center_lat = (lat_a + lat_b) / 2.0
+    delta_lat_deg = math.degrees(margin_km / EARTH_RADIUS_KM)
+    lat_rad = math.radians(center_lat)
+    cos_lat = max(0.01, math.cos(lat_rad))
+    delta_lon_deg = math.degrees(margin_km / (EARTH_RADIUS_KM * cos_lat))
+
+    min_lat = max(-85.0, min(lat_a, lat_b) - delta_lat_deg)
+    max_lat = min(85.0, max(lat_a, lat_b) + delta_lat_deg)
+    min_lon = max(-180.0, min(lon_a, lon_b) - delta_lon_deg)
+    max_lon = min(180.0, max(lon_a, lon_b) + delta_lon_deg)
     return min_lat, min_lon, max_lat, max_lon
 
 
@@ -107,12 +129,16 @@ def fetch_tile_bytes(z: int, x: int, y: int, user_agent: str = DEFAULT_USER_AGEN
 def download_elevation_grid(
     center_lat: float,
     center_lon: float,
-    radius_km: float,
+    radius_km: float = 2.0,
+    bbox: Optional[Tuple[float, float, float, float]] = None,
     zoom: int = 13,
     target_resolution: int = 256,
 ) -> Tuple[np.ndarray, Tuple[float, float, float, float], float, float]:
     """Descarga mosaicos AWS Terrarium y devuelve la cuadrícula de elevación en metros y dimensiones."""
-    min_lat, min_lon, max_lat, max_lon = bbox_from_center(center_lat, center_lon, radius_km)
+    if bbox is not None:
+        min_lat, min_lon, max_lat, max_lon = bbox
+    else:
+        min_lat, min_lon, max_lat, max_lon = bbox_from_center(center_lat, center_lon, radius_km)
 
     x1, y1 = lat_lon_to_tile(max_lat, min_lon, zoom)  # NW
     x2, y2 = lat_lon_to_tile(min_lat, max_lon, zoom)  # SE
@@ -272,6 +298,18 @@ def create_blender_terrain_mesh(
     # Establecer como terreno objetivo en configuración GIS
     gis_cfg.target_terrain_name = obj.name
 
+    # Ajustar límite lejano de cámara (clip_end) y encuadrar vista
+    if getattr(gis_cfg, "auto_adjust_clipping", True):
+        max_span = max(width_m, height_m)
+        adjust_viewport_clipping(context, max_span)
+
+    if getattr(gis_cfg, "auto_frame_view", True):
+        for o in context.selected_objects:
+            o.select_set(False)
+        obj.select_set(True)
+        context.view_layer.objects.active = obj
+        frame_active_object(context)
+
     return obj
 
 
@@ -285,19 +323,36 @@ class TRACKMAKER_OT_DownloadTerrainDEM(bpy.types.Operator):
 
     def execute(self, context):
         gis_cfg = context.scene.track_maker_gis
-        lat = gis_cfg.latitude
-        lon = gis_cfg.longitude
-        radius = gis_cfg.terrain_radius_km
         zoom = gis_cfg.dem_zoom
         res = gis_cfg.terrain_resolution
 
-        self.report({"INFO"}, f"Descargando topografía DEM en Lat={lat:.5f}, Lon={lon:.5f} (Radio={radius:.1f}km, Zoom={zoom})...")
+        if gis_cfg.coverage_mode == "POINTS_AB":
+            lat_a, lon_a = gis_cfg.point_a_lat, gis_cfg.point_a_lon
+            lat_b, lon_b = gis_cfg.point_b_lat, gis_cfg.point_b_lon
+            center_lat = (lat_a + lat_b) / 2.0
+            center_lon = (lon_a + lon_b) / 2.0
+            bbox = bbox_from_points_ab(lat_a, lon_a, lat_b, lon_b, gis_cfg.corridor_margin_km)
+            self.report(
+                {"INFO"},
+                f"Descargando topografía DEM tramo A-B ({lat_a:.4f} -> {lat_b:.4f}) | Margen: {gis_cfg.corridor_margin_km:.1f}km (Zoom={zoom})...",
+            )
+            radius = gis_cfg.corridor_margin_km
+        else:
+            center_lat = gis_cfg.latitude
+            center_lon = gis_cfg.longitude
+            bbox = None
+            radius = gis_cfg.terrain_radius_km
+            self.report(
+                {"INFO"},
+                f"Descargando topografía DEM en Lat={center_lat:.5f}, Lon={center_lon:.5f} (Radio={radius:.1f}km, Zoom={zoom})...",
+            )
 
         try:
-            elev_grid, bbox, width_m, height_m = download_elevation_grid(
-                center_lat=lat,
-                center_lon=lon,
+            elev_grid, bbox_out, width_m, height_m = download_elevation_grid(
+                center_lat=center_lat,
+                center_lon=center_lon,
                 radius_km=radius,
+                bbox=bbox,
                 zoom=zoom,
                 target_resolution=res,
             )
@@ -305,8 +360,8 @@ class TRACKMAKER_OT_DownloadTerrainDEM(bpy.types.Operator):
             terrain_obj = create_blender_terrain_mesh(
                 context=context,
                 elevation=elev_grid,
-                center_lat=lat,
-                center_lon=lon,
+                center_lat=center_lat,
+                center_lon=center_lon,
                 width_m=width_m,
                 height_m=height_m,
                 obj_name="TM_Terrain",

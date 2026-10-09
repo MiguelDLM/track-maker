@@ -128,6 +128,19 @@ class TestGISTools(unittest.TestCase):
         self.assertEqual(polylines[0][0], (40.0, -3.0))
         self.assertEqual(polylines[0][-1], (40.3, -3.0))
 
+    def test_bbox_from_points_ab(self):
+        """Verifica que el bounding box del tramo A-B englobe ambos puntos con su margen."""
+        from track_maker.gis.dem_downloader import bbox_from_points_ab
+        lat_a, lon_a = 20.53089, -103.29324
+        lat_b, lon_b = 20.67886, -103.34755
+        min_lat, min_lon, max_lat, max_lon = bbox_from_points_ab(lat_a, lon_a, lat_b, lon_b, margin_km=1.0)
+
+        # Ambos puntos deben quedar estrictamente dentro del bounding box
+        self.assertTrue(min_lat < lat_a < max_lat)
+        self.assertTrue(min_lat < lat_b < max_lat)
+        self.assertTrue(min_lon < lon_a < max_lon)
+        self.assertTrue(min_lon < lon_b < max_lon)
+
 
 if __name__ == "__main__":
     unittest.main()
