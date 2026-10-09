@@ -183,7 +183,7 @@ class TRACKMAKER_PT_GISPanel(bpy.types.Panel):
 
         row_draw_tools = box_draw.row(align=True)
         row_draw_tools.operator("track_maker.finish_surface_draw", text="Finalizar", icon="CHECKMARK")
-        row_draw_tools.operator("track_maker.smooth_spline", text="Suavizar", icon="SMOOTHSURF")
+        row_draw_tools.operator("track_maker.smooth_spline", text="Suavizar", icon="SMOOTHCURVE")
         row_draw_tools.operator("track_maker.project_curve_to_terrain", text="Proyectar Z", icon="SNAP_ON")
 
         row_draw_gates = box_draw.row(align=True)
