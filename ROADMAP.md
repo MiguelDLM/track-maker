@@ -5,8 +5,8 @@ Este documento define el estado actual, las fases de desarrollo planificadas y e
 ---
 
 ## 🧭 Estado Actual del Proyecto
-* **Fase Activa:** **Fase 2 (Siguiente: Generador de Carreteras Procedurales y Separación Física/Visual)**
-* **Hitos Recientes:** Fase 1 completada con éxito (documentación técnica, estructura modular del addon, constantes oficiales de AC, PropertyGroups, operadores de spawns/boxes/timing gates y paneles UI en el N-Panel de Blender).
+* **Fase Activa:** **Fase 3 (Siguiente: Integración Topográfica y LiDAR Real)**
+* **Hitos Recientes:** Fases 1 y 2 completadas con éxito (Esqueleto modular, Race Nodes AC, Generador de Carreteras Procedurales, Geometry Nodes, Separación Física/Visual 1ROAD_ y Suite de Tests Unitarios).
 
 ---
 
@@ -48,18 +48,20 @@ flowchart LR
 
 ---
 
-### Fase 2: Carreteras Procedurales y Separación Física/Visual ⚪ *(Pendiente)*
-- [ ] Generador de curvas guía de circuito (Spline 3D).
-- [ ] Creación del grafo de **Geometry Nodes** para extrusión de calzada:
-  - Anchura de pista configurable y peralte dinámico (*tilt*).
-  - Generación de bordillos / banquetas / arcenes.
-  - Generación de barreras / guardarraíles / muros (`1WALL_`).
-- [ ] Generación automática y desacoplada de la **Malla Física (`1ROAD_`)**:
-  - Subdivisión longitudinal uniforme (0.2m - 0.5m) optimizada para el FFB de Assetto Corsa.
-  - Triangulación limpia sin artefactos.
-- [ ] Mapeo UV procedural para la malla visual:
-  - Textura de asfalto continua a lo largo del trazado sin deformaciones.
-  - Canales UV auxiliares para líneas blancas y marcas de frenada.
+### Fase 2: Carreteras Procedurales y Separación Física/Visual 🟢 *(Completada)*
+- [x] Generador de curvas guía de circuito (Spline 3D en `curve_tools.py`) para circuitos cerrados y tramos A-B.
+- [x] Herramientas de peralte: Fijar peralte exacto (`set_curve_tilt`) y cálculo de auto-peralte por radio de curvatura (`auto_bank_curve`).
+- [x] Generador de perfiles transversales paramétricos (`profile_generator.py`):
+  - Calzada con anchura ajustable y bombeo parabólico de drenaje (*camber*).
+  - Bordillos / pianos laterales con chaflán (`KERB`).
+  - Banquetas peatonales urbanas (`SIDEWALK`).
+  - Muros y barreras rígidas (`WALL`).
+- [x] Árbol interactivo de **Geometry Nodes** para previsualización en tiempo real (`geometry_nodes.py`).
+- [x] Generador de mallas acopladas/desacopladas (`road_generator.py`):
+  - **Malla Visual (`ROAD_`)**: UV continuo longitudinal sin estiramiento (`UVMap`), materiales asignados (`MAT_TM_Asphalt`, `MAT_TM_Kerb`, `MAT_TM_Sidewalk`, `MAT_TM_Wall`) en `TM_Road_Visual`.
+  - **Malla Física (`1ROAD_`)**: Subdivisión longitudinal uniforme (0.2m - 0.4m para FFB), triangulación obligatoria para el motor de físicas de AC en `TM_Road_Physics`.
+- [x] Panel UI de carreteras (`ui/panel_road.py`) integrado en el N-Panel de Blender.
+- [x] Tests unitarios matemáticos y de perfiles (`tests/test_road_profile.py`).
 
 ---
 

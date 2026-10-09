@@ -141,10 +141,136 @@ class TrackMakerTimingSettings(bpy.types.PropertyGroup):
     )
 
 
+class TrackMakerRoadSettings(bpy.types.PropertyGroup):
+    """Parámetros para la generación procedural de carreteras y gemelos físicos de AC."""
+
+    road_name: StringProperty(
+        name="Nombre de la Carretera",
+        description="Identificador base para las mallas generadas (ROAD_ y 1ROAD_)",
+        default="Pista_Principal",
+    )
+
+    road_width: FloatProperty(
+        name="Anchura de Calzada",
+        description="Anchura total del asfalto en metros",
+        default=9.0,
+        min=2.0,
+        max=50.0,
+        unit="LENGTH",
+    )
+
+    road_subdivisions_x: IntProperty(
+        name="Subdivisiones Perfil",
+        description="Número de segmentos transversales para formar el ancho de la calzada",
+        default=6,
+        min=2,
+        max=32,
+    )
+
+    physics_subdivision_y: FloatProperty(
+        name="Paso Longitudinal FFB",
+        description="Distancia longitudinal entre vértices en la malla física 1ROAD_ (ideal 0.2m - 0.4m para FFB en AC)",
+        default=0.30,
+        min=0.10,
+        max=2.00,
+        unit="LENGTH",
+    )
+
+    visual_resolution_y: IntProperty(
+        name="Resolución Spline Visual",
+        description="Número de cortes evaluados por segmento de curva para la malla visual",
+        default=24,
+        min=4,
+        max=128,
+    )
+
+    has_crown: bpy.props.BoolProperty(
+        name="Bombeo Central (Camber)",
+        description="Añade curvatura transversal convexa para simular desagüe y peralte natural de carreteras",
+        default=True,
+    )
+
+    crown_height: FloatProperty(
+        name="Altura Bombeo",
+        description="Elevación del centro de la calzada respecto a los bordes en metros",
+        default=0.06,
+        min=0.0,
+        max=0.3,
+        unit="LENGTH",
+    )
+
+    # Bordillos / Pianos / Banquetas
+    has_kerbs: bpy.props.BoolProperty(
+        name="Bordillos / Banquetas",
+        description="Generar bordillos laterales a lo largo de la calzada",
+        default=True,
+    )
+
+    kerb_width: FloatProperty(
+        name="Anchura Bordillo",
+        description="Anchura del bordillo en metros",
+        default=0.40,
+        min=0.1,
+        max=2.5,
+        unit="LENGTH",
+    )
+
+    kerb_height: FloatProperty(
+        name="Altura Bordillo",
+        description="Altura del bordillo o banqueta respecto al asfalto en metros",
+        default=0.12,
+        min=0.02,
+        max=0.4,
+        unit="LENGTH",
+    )
+
+    # Banquetas peatonales (Escenarios Urbanos)
+    has_sidewalks: bpy.props.BoolProperty(
+        name="Banquetas Urbanas",
+        description="Extruir aceras peatonales tras el bordillo",
+        default=False,
+    )
+
+    sidewalk_width: FloatProperty(
+        name="Anchura Banqueta",
+        description="Anchura de la acera peatonal en metros",
+        default=1.80,
+        min=0.5,
+        max=8.0,
+        unit="LENGTH",
+    )
+
+    # Barreras / Guardarraíles
+    has_walls: bpy.props.BoolProperty(
+        name="Muros / Barreras (1WALL_)",
+        description="Generar barreras rígidas o guardarraíles con colisión 1WALL_",
+        default=False,
+    )
+
+    wall_height: FloatProperty(
+        name="Altura Muro",
+        description="Altura de la barrera en metros",
+        default=0.90,
+        min=0.3,
+        max=3.0,
+        unit="LENGTH",
+    )
+
+    # Texturizado y UVs
+    uv_tiling_v: FloatProperty(
+        name="Repetición UV (Longitudinal)",
+        description="Repetición de la textura de asfalto por metro",
+        default=0.20,
+        min=0.01,
+        max=2.0,
+    )
+
+
 classes = (
     TrackMakerCircuitSettings,
     TrackMakerSpawnSettings,
     TrackMakerTimingSettings,
+    TrackMakerRoadSettings,
 )
 
 
@@ -155,12 +281,15 @@ def register():
     bpy.types.Scene.track_maker_circuit = PointerProperty(type=TrackMakerCircuitSettings)
     bpy.types.Scene.track_maker_spawns = PointerProperty(type=TrackMakerSpawnSettings)
     bpy.types.Scene.track_maker_timing = PointerProperty(type=TrackMakerTimingSettings)
+    bpy.types.Scene.track_maker_road = PointerProperty(type=TrackMakerRoadSettings)
 
 
 def unregister():
     del bpy.types.Scene.track_maker_circuit
     del bpy.types.Scene.track_maker_spawns
     del bpy.types.Scene.track_maker_timing
+    del bpy.types.Scene.track_maker_road
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
+

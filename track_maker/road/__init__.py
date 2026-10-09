@@ -1,9 +1,18 @@
-"""Módulo de generación de carreteras procedurales y colisionadores (Fase 2)."""
+"""Módulo de generación de carreteras procedurales y colisionadores de Assetto Corsa."""
+
+from . import curve_tools
+from . import profile_generator
+from . import road_generator
+from . import geometry_nodes
 
 
 def register():
-    pass
+    curve_tools.register()
+    road_generator.register()
+    geometry_nodes.register()
 
 
 def unregister():
-    pass
+    geometry_nodes.unregister()
+    road_generator.unregister()
+    curve_tools.unregister()
