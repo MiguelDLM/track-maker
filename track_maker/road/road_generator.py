@@ -160,6 +160,7 @@ class TRACKMAKER_OT_GenerateRoadMeshes(bpy.types.Operator):
         mat_kerb = get_or_create_material("MAT_TM_Kerb", (0.80, 0.15, 0.15, 1.0), 0.60)
         mat_sidewalk = get_or_create_material("MAT_TM_Sidewalk", (0.50, 0.50, 0.50, 1.0), 0.90)
         mat_wall = get_or_create_material("MAT_TM_Wall", (0.35, 0.37, 0.40, 1.0), 0.70)
+        mat_grass = get_or_create_material("MAT_TM_Grass", (0.18, 0.28, 0.14, 1.0), 0.95)
 
         # -------------------------------------------------------------
         # 1. GENERACIÓN DE LA MALLA VISUAL (ROAD_)
@@ -182,6 +183,9 @@ class TRACKMAKER_OT_GenerateRoadMeshes(bpy.types.Operator):
                     kerb_height=road_cfg.kerb_height,
                     has_sidewalks=road_cfg.has_sidewalks,
                     sidewalk_width=road_cfg.sidewalk_width,
+                    has_shoulders=getattr(road_cfg, "has_shoulders", True),
+                    shoulder_width=getattr(road_cfg, "shoulder_width", 2.5),
+                    shoulder_slope=getattr(road_cfg, "shoulder_slope", 0.15),
                     has_walls=road_cfg.has_walls,
                     wall_height=road_cfg.wall_height,
                     for_physics_only=False,
@@ -274,6 +278,7 @@ class TRACKMAKER_OT_GenerateRoadMeshes(bpy.types.Operator):
                 vis_mesh_data.materials.append(mat_kerb)
                 vis_mesh_data.materials.append(mat_sidewalk)
                 vis_mesh_data.materials.append(mat_wall)
+                vis_mesh_data.materials.append(mat_grass)
 
                 vis_obj = bpy.data.objects.new(vis_mesh_name, vis_mesh_data)
                 vis_obj["track_element_type"] = ELEMENT_ROAD_VISUAL
@@ -290,14 +295,17 @@ class TRACKMAKER_OT_GenerateRoadMeshes(bpy.types.Operator):
             phys_samples = sample_curve_evaluated(curve_obj, step_length=step_len)
 
             if len(phys_samples) >= 2:
-                # Perfil físico puro (solo la superficie donde ruedan los neumáticos)
+                # Perfil físico puro (asfalto + arcenes exteriores para colisiones)
                 phys_profile = generate_cross_section_profile(
                     road_width=road_cfg.road_width,
                     subdivisions_x=road_cfg.road_subdivisions_x,
                     has_crown=road_cfg.has_crown,
                     crown_height=road_cfg.crown_height,
-                    has_kerbs=False,  # Opcional: los bordillos físicos se pueden separar a 1KERB_
+                    has_kerbs=False,
                     has_sidewalks=False,
+                    has_shoulders=getattr(road_cfg, "has_shoulders", True),
+                    shoulder_width=getattr(road_cfg, "shoulder_width", 2.5),
+                    shoulder_slope=getattr(road_cfg, "shoulder_slope", 0.15),
                     has_walls=False,
                     for_physics_only=True,
                 )

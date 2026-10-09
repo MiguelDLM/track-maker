@@ -24,6 +24,9 @@ def generate_cross_section_profile(
     kerb_height: float = 0.12,
     has_sidewalks: bool = False,
     sidewalk_width: float = 1.80,
+    has_shoulders: bool = False,
+    shoulder_width: float = 2.50,
+    shoulder_slope: float = 0.15,
     has_walls: bool = False,
     wall_height: float = 0.90,
     for_physics_only: bool = False,
@@ -57,9 +60,58 @@ def generate_cross_section_profile(
             )
         )
 
-    # Si es solo para la malla física pura (1ROAD_), devolvemos únicamente el asfalto (y opcional bordillos)
+    # 2. ARCENTES / HOMBROS (SHOULDER / GRASS)
+    left_shoulder: list[RoadProfilePoint] = []
+    right_shoulder: list[RoadProfilePoint] = []
+
+    if has_shoulders and shoulder_width > 0.0:
+        base_edge_l = -half_width - (kerb_width if has_kerbs else 0.0) - (sidewalk_width if has_sidewalks else 0.0)
+        base_z_l = (kerb_height if (has_kerbs or has_sidewalks) else 0.0)
+
+        left_shoulder.append(
+            RoadProfilePoint(
+                offset_x=base_edge_l - shoulder_width,
+                offset_z=base_z_l - shoulder_slope,
+                u_coord=0.0,
+                surface_type="GRASS",
+                mat_index=4,
+            )
+        )
+        left_shoulder.append(
+            RoadProfilePoint(
+                offset_x=base_edge_l,
+                offset_z=base_z_l,
+                u_coord=1.0,
+                surface_type="GRASS",
+                mat_index=4,
+            )
+        )
+
+        base_edge_r = half_width + (kerb_width if has_kerbs else 0.0) + (sidewalk_width if has_sidewalks else 0.0)
+        base_z_r = (kerb_height if (has_kerbs or has_sidewalks) else 0.0)
+
+        right_shoulder.append(
+            RoadProfilePoint(
+                offset_x=base_edge_r,
+                offset_z=base_z_r,
+                u_coord=0.0,
+                surface_type="GRASS",
+                mat_index=4,
+            )
+        )
+        right_shoulder.append(
+            RoadProfilePoint(
+                offset_x=base_edge_r + shoulder_width,
+                offset_z=base_z_r - shoulder_slope,
+                u_coord=1.0,
+                surface_type="GRASS",
+                mat_index=4,
+            )
+        )
+
+    # Si es solo para la malla física pura (1ROAD_): asfalto + arcenes
     if for_physics_only:
-        return road_points
+        return left_shoulder + road_points + right_shoulder
 
     # 2. BORDILLOS / PIANOS / BANQUETAS (KERB)
     left_kerb: list[RoadProfilePoint] = []
@@ -239,5 +291,5 @@ def generate_cross_section_profile(
         )
 
     # Ensamblar el perfil completo ordenado de extremo izquierdo a extremo derecho
-    profile = left_wall + left_sidewalk + left_kerb + road_points + right_kerb + right_sidewalk + right_wall
+    profile = left_wall + left_shoulder + left_sidewalk + left_kerb + road_points + right_kerb + right_sidewalk + right_shoulder + right_wall
     return profile

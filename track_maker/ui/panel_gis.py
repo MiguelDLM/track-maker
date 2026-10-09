@@ -281,6 +281,14 @@ class TRACKMAKER_PT_GISPanel(bpy.types.Panel):
             icon="SMOOTHCURVE",
         )
 
+        row_terra = box_snap.row(align=True)
+        row_terra.scale_y = 1.2
+        row_terra.operator(
+            "track_maker.terraform_terrain",
+            text="Conformar Terreno bajo Calzada",
+            icon="MESH_GRID",
+        )
+
 
 classes = (TRACKMAKER_PT_GISPanel,)
 

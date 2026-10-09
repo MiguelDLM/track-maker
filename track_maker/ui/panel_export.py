@@ -54,6 +54,15 @@ class TRACKMAKER_PT_ExportPanel(bpy.types.Panel):
         row_check = box_val.row(align=True)
         row_check.operator("track_maker.validate_preflight", text="Inspeccionar Escena", icon="VIEWZOOM")
 
+        # Generador de Minimapa 2D
+        row_map = layout.row(align=True)
+        row_map.scale_y = 1.2
+        row_map.operator(
+            "track_maker.generate_track_map",
+            text="Generar Minimapa 2D (map.png)",
+            icon="GRAPH",
+        )
+
         # ---------------------------------------------------------
         # 3. ACCIÓN DE EXPORTACIÓN
         # ---------------------------------------------------------

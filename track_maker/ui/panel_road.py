@@ -71,6 +71,13 @@ class TRACKMAKER_PT_RoadPanel(bpy.types.Panel):
         if road_cfg.has_sidewalks:
             box_prof.prop(road_cfg, "sidewalk_width")
 
+        # Arcenes / Transición con relieve (Hierba/Tierra)
+        box_prof.prop(road_cfg, "has_shoulders")
+        if road_cfg.has_shoulders:
+            col_sh = box_prof.column(align=True)
+            col_sh.prop(road_cfg, "shoulder_width")
+            col_sh.prop(road_cfg, "shoulder_slope")
+
         # Muros / Barreras
         box_prof.prop(road_cfg, "has_walls")
         if road_cfg.has_walls:

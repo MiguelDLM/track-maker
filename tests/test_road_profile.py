@@ -76,6 +76,28 @@ class TestRoadProfileGenerator(unittest.TestCase):
         self.assertEqual(types, {"ROAD"})
         self.assertEqual(len(profile_phys), 7)
 
+    def test_road_with_shoulders(self):
+        # 4. Calzada con arcenes de transición (GRASS)
+        profile = generate_cross_section_profile(
+            road_width=10.0,
+            subdivisions_x=4,
+            has_kerbs=False,
+            has_shoulders=True,
+            shoulder_width=2.5,
+            shoulder_slope=0.20,
+        )
+
+        types = [p.surface_type for p in profile]
+        self.assertIn("GRASS", types)
+        self.assertIn("ROAD", types)
+
+        # Extremo izquierdo del arcén en -7.5m (-5.0 - 2.5) con caída Z de -0.20m
+        self.assertAlmostEqual(profile[0].offset_x, -7.5)
+        self.assertAlmostEqual(profile[0].offset_z, -0.20)
+        # Extremo derecho del arcén en +7.5m (+5.0 + 2.5)
+        self.assertAlmostEqual(profile[-1].offset_x, 7.5)
+        self.assertAlmostEqual(profile[-1].offset_z, -0.20)
+
 
 if __name__ == "__main__":
     unittest.main()

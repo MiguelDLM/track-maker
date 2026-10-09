@@ -214,6 +214,13 @@ def build_complete_ab_stage(context) -> dict:
     gate_width = getattr(timing_cfg, "gate_width", 16.0) if timing_cfg else 16.0
     gates = place_ab_timing_gates_on_curve(context, spline_obj, gate_width=gate_width)
 
+    # Paso 6.1: Alinear automáticamente spawns de salida y boxes al inicio del tramo
+    try:
+        from ..race_nodes.spawn_manager import auto_align_all_spawns_to_spline
+        auto_align_all_spawns_to_spline(context, curve_obj=spline_obj)
+    except Exception:
+        pass
+
     # Paso 7: Configurar tipo de circuito como HILLCLIMB_AB
     if hasattr(context.scene, "track_maker_circuit"):
         context.scene.track_maker_circuit.circuit_type = "HILLCLIMB_AB"

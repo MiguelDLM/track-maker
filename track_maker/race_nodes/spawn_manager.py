@@ -236,11 +236,170 @@ class TRACKMAKER_OT_ClearRaceSpawns(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def auto_align_all_spawns_to_spline(context, curve_obj: bpy.types.Object = None) -> dict:
+    """Alinea automáticamente todos los puntos de salida, boxes y hotlap al inicio de la carretera."""
+    if curve_obj is None:
+        active = context.active_object
+        if active and active.type == "CURVE":
+            curve_obj = active
+        else:
+            curve_obj = bpy.data.objects.get("Spline_Route_AB")
+        if not curve_obj:
+            for obj in bpy.data.objects:
+                if obj.type == "CURVE" and obj.data.splines:
+                    curve_obj = obj
+                    break
+
+    if not curve_obj or not curve_obj.data.splines:
+        raise ValueError("No se encontró ningún spline de carretera para alinear los spawns.")
+
+    spline = curve_obj.data.splines[0]
+    mat_world = curve_obj.matrix_world
+
+    if spline.type == "BEZIER":
+        pts = spline.bezier_points
+        if len(pts) < 2:
+            raise ValueError("El spline requiere al menos 2 puntos.")
+        p0 = mat_world @ pts[0].co
+        p1 = mat_world @ pts[1].co
+    else:
+        pts = spline.points
+        if len(pts) < 2:
+            raise ValueError("El spline requiere al menos 2 puntos.")
+        p0 = mat_world @ pts[0].co.to_3d()
+        p1 = mat_world @ pts[1].co.to_3d()
+
+    tan = (p1 - p0).to_2d()
+    if tan.length == 0:
+        tan = Vector((0.0, 1.0))
+    else:
+        tan = tan.normalized()
+
+    forward = Vector((tan.x, tan.y, 0.0))
+    right = Vector((-tan.y, tan.x, 0.0))
+    up = Vector((0.0, 0.0, 1.0))
+
+    yaw = math.atan2(tan.y, tan.x) - math.pi / 2.0
+    rot = Euler((0.0, 0.0, yaw), "XYZ")
+
+    spawns_cfg = getattr(context.scene, "track_maker_spawns", None)
+    start_count = getattr(spawns_cfg, "grid_count", 24) if spawns_cfg else 24
+    row_spacing = getattr(spawns_cfg, "grid_row_spacing", 8.0) if spawns_cfg else 8.0
+    lat_spacing = getattr(spawns_cfg, "grid_lateral_spacing", 3.5) if spawns_cfg else 3.5
+    stagger_offset = getattr(spawns_cfg, "grid_stagger_offset", 4.0) if spawns_cfg else 4.0
+    layout = getattr(spawns_cfg, "grid_layout", "STAGGERED") if spawns_cfg else "STAGGERED"
+
+    # 1. Eliminar spawns previos
+    remove_objects_by_prefix(PREFIX_START)
+    remove_objects_by_prefix(PREFIX_PIT)
+    if NAME_HOTLAP_START in bpy.data.objects:
+        bpy.data.objects.remove(bpy.data.objects[NAME_HOTLAP_START], do_unlink=True)
+
+    # 2. Generar AC_START_0..N escalonados o en fila detrás de la salida
+    created_starts = []
+    base_start_offset = -12.0  # 12 metros detrás de la línea de salida
+
+    for i in range(start_count):
+        name = f"{PREFIX_START}{i}"
+        if layout == "STAGGERED":
+            row_idx = i // 2
+            is_right = (i % 2 == 0)
+            side_sign = 1.0 if is_right else -1.0
+            lat_off = (lat_spacing / 2.0) * side_sign
+            long_off = base_start_offset - (row_idx * row_spacing)
+            if not is_right:
+                long_off -= stagger_offset
+        elif layout == "PARALLEL":
+            row_idx = i // 2
+            is_right = (i % 2 == 0)
+            side_sign = 1.0 if is_right else -1.0
+            lat_off = (lat_spacing / 2.0) * side_sign
+            long_off = base_start_offset - (row_idx * row_spacing)
+        else:  # IN_LINE
+            lat_off = 0.0
+            long_off = base_start_offset - (i * row_spacing)
+
+        pos = p0 + (forward * long_off) + (right * lat_off) + (up * 0.18)
+        empty = create_ac_empty(
+            name=name,
+            location=pos,
+            rotation_euler=rot,
+            display_type="SINGLE_ARROW",
+            display_size=2.0,
+            element_type=ELEMENT_SPAWN_START,
+        )
+        created_starts.append(empty)
+
+    # 3. Generar AC_HOTLAP_START_0 (25m detrás de la salida en el carril central)
+    hl_pos = p0 + (forward * -25.0) + (up * 0.18)
+    hl_empty = create_ac_empty(
+        name=NAME_HOTLAP_START,
+        location=hl_pos,
+        rotation_euler=rot,
+        display_type="SINGLE_ARROW",
+        display_size=2.5,
+        element_type=ELEMENT_SPAWN_HOTLAP,
+    )
+
+    # 4. Generar AC_PIT_0..N (en el arcén antes de la parrilla)
+    pit_count = getattr(spawns_cfg, "pit_count", 24) if spawns_cfg else 24
+    pit_spacing = getattr(spawns_cfg, "pit_spacing", 10.0) if spawns_cfg else 10.0
+    road_cfg = getattr(context.scene, "track_maker_road", None)
+    road_w = getattr(road_cfg, "road_width", 9.0) if road_cfg else 9.0
+    pit_lat_offset = (road_w / 2.0) + 2.5
+
+    created_pits = []
+    base_pit_offset = base_start_offset - (start_count * (row_spacing / 2.0)) - 10.0
+
+    for i in range(pit_count):
+        name = f"{PREFIX_PIT}{i}"
+        pos = p0 + (forward * (base_pit_offset - (i * pit_spacing))) + (right * pit_lat_offset) + (up * 0.18)
+        empty = create_ac_empty(
+            name=name,
+            location=pos,
+            rotation_euler=rot,
+            display_type="SINGLE_ARROW",
+            display_size=1.8,
+            element_type=ELEMENT_SPAWN_PIT,
+        )
+        created_pits.append(empty)
+
+    return {
+        "starts": created_starts,
+        "pits": created_pits,
+        "hotlap": hl_empty,
+    }
+
+
+class TRACKMAKER_OT_AlignSpawnsToSpline(bpy.types.Operator):
+    """Alinea automáticamente todos los puntos de salida, boxes y hotlap al inicio del trazado activo."""
+
+    bl_idname = "track_maker.align_spawns_to_spline"
+    bl_label = "Alinear Spawns al Inicio del Trazado"
+    bl_description = "Coloca automáticamente AC_START_0..N, AC_PIT_0..N y AC_HOTLAP sobre el asfalto al inicio de la carretera"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        try:
+            res = auto_align_all_spawns_to_spline(context)
+            starts_len = len(res["starts"])
+            pits_len = len(res["pits"])
+            self.report(
+                {"INFO"},
+                f"🏁 Spawns alineados con éxito: {starts_len} salidas, {pits_len} boxes y Hotlap en cabecera.",
+            )
+            return {"FINISHED"}
+        except Exception as e:
+            self.report({"ERROR"}, f"Error alineando spawns: {e}")
+            return {"CANCELLED"}
+
+
 classes = (
     TRACKMAKER_OT_CreateGridStarts,
     TRACKMAKER_OT_CreatePitBoxes,
     TRACKMAKER_OT_CreateHotlapSpawn,
     TRACKMAKER_OT_ClearRaceSpawns,
+    TRACKMAKER_OT_AlignSpawnsToSpline,
 )
 
 

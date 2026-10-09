@@ -240,6 +240,31 @@ class TrackMakerRoadSettings(bpy.types.PropertyGroup):
         unit="LENGTH",
     )
 
+    # Arcenes / Transición con el terreno (Hierba / Tierra)
+    has_shoulders: bpy.props.BoolProperty(
+        name="Arcenes de Transición (Hierba/Tierra)",
+        description="Genera franjas laterales de arcén con pendiente que conectan la carretera con el relieve",
+        default=True,
+    )
+
+    shoulder_width: FloatProperty(
+        name="Anchura del Arcén",
+        description="Anchura en metros de la franja exterior de arcén/hierba a cada lado",
+        default=2.5,
+        min=0.5,
+        max=10.0,
+        unit="LENGTH",
+    )
+
+    shoulder_slope: FloatProperty(
+        name="Caída del Arcén",
+        description="Desnivel en metros hacia abajo del arcén para fundirse con la ladera de la montaña",
+        default=0.15,
+        min=-1.0,
+        max=2.0,
+        unit="LENGTH",
+    )
+
     # Barreras / Guardarraíles
     has_walls: bpy.props.BoolProperty(
         name="Muros / Barreras (1WALL_)",

@@ -22,6 +22,20 @@ class TRACKMAKER_PT_RaceNodesPanel(bpy.types.Panel):
         timing_cfg = scene.track_maker_timing
 
         # ---------------------------------------------------------
+        # 0. ALINEACIÓN AUTOMÁTICA AL TRAZADO
+        # ---------------------------------------------------------
+        box_auto = layout.box()
+        box_auto.label(text="Colocación Automática en Pista", icon="AUTO")
+        row_auto = box_auto.row(align=True)
+        row_auto.scale_y = 1.3
+        row_auto.operator(
+            "track_maker.align_spawns_to_spline",
+            text="🏁 Alinear Spawns al Trazado",
+            icon="PLAY",
+        )
+        box_auto.label(text="Coloca Starts, Pits y Hotlap ordenados al inicio de la pista.", icon="INFO")
+
+        # ---------------------------------------------------------
         # 1. PARRILLA DE SALIDA (AC_START)
         # ---------------------------------------------------------
         box_grid = layout.box()

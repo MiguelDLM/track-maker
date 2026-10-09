@@ -116,6 +116,15 @@ class TRACKMAKER_OT_ExportAssettoCorsa(bpy.types.Operator):
                 pitboxes=pit_count,
                 circuit_type=circuit_cfg.circuit_type,
             )
+
+            # 3.1 Generar automáticamente el minimapa 2D (map.png y data/map.ini)
+            try:
+                from .map_generator import generate_track_minimap
+                spline_obj = next((o for o in scene.objects if o.type == "CURVE" and o.data.splines), None)
+                if spline_obj:
+                    generate_track_minimap(spline_obj, mod_dir)
+            except Exception as e:
+                print(f"[TRACK MAKER] Aviso generando minimapa: {e}")
         else:
             mod_dir = os.path.join(resolved_base_dir, track_name)
             os.makedirs(mod_dir, exist_ok=True)

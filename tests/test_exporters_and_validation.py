@@ -121,5 +121,25 @@ class TestPreflightValidator(unittest.TestCase):
         self.assertEqual(len(report.errors), 0)
 
 
+from track_maker.exporters.map_generator import encode_png_rgba
+import numpy as np
+
+
+class TestMapGenerator(unittest.TestCase):
+    def test_encode_png_rgba_valid(self):
+        img = np.zeros((32, 32, 4), dtype=np.uint8)
+        img[:, :, 3] = 255  # Solid alpha
+        png_data = encode_png_rgba(img)
+        self.assertTrue(png_data.startswith(b"\x89PNG\r\n\x1a\n"))
+        self.assertIn(b"IHDR", png_data)
+        self.assertIn(b"IDAT", png_data)
+        self.assertIn(b"IEND", png_data)
+
+    def test_encode_png_rgba_invalid_channels(self):
+        img_rgb = np.zeros((32, 32, 3), dtype=np.uint8)
+        with self.assertRaises(ValueError):
+            encode_png_rgba(img_rgb)
+
+
 if __name__ == "__main__":
     unittest.main()

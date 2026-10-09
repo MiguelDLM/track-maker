@@ -181,9 +181,149 @@ class TRACKMAKER_OT_SmoothCurveElevation(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def terraform_terrain_to_road(
+    terrain_obj: bpy.types.Object,
+    spline_obj: bpy.types.Object,
+    road_width: float = 12.0,
+    clearance: float = 0.20,
+    falloff: float = 4.0,
+) -> int:
+    """Modifica la cota Z de los vértices del terreno directamente debajo de la calzada para evitar penetraciones."""
+    from mathutils import kdtree
+
+    if not terrain_obj or terrain_obj.type != "MESH":
+        raise ValueError("El objeto de terreno debe ser una malla (MESH).")
+    if not spline_obj or spline_obj.type != "CURVE" or not spline_obj.data.splines:
+        raise ValueError("El trazado debe ser una curva (CURVE) con al menos un spline.")
+
+    spline = spline_obj.data.splines[0]
+    mat_spline = spline_obj.matrix_world
+    mat_terrain = terrain_obj.matrix_world
+    inv_terrain = mat_terrain.inverted()
+
+    # Muestrear puntos de la curva
+    if spline.type == "BEZIER":
+        raw_pts = [mat_spline @ bp.co for bp in spline.bezier_points]
+    else:
+        raw_pts = [mat_spline @ p.co.to_3d() for p in spline.points]
+
+    if len(raw_pts) < 2:
+        return 0
+
+    # Subdividir linealmente para tener muestras densas cada ~5m
+    dense_pts = []
+    for i in range(len(raw_pts) - 1):
+        p_a = raw_pts[i]
+        p_b = raw_pts[i + 1]
+        seg_len = (p_b - p_a).length
+        steps = max(1, int(seg_len / 5.0))
+        for s in range(steps):
+            dense_pts.append(p_a.lerp(p_b, s / steps))
+    dense_pts.append(raw_pts[-1])
+
+    # Construir KDTree con las muestras del eje de carretera
+    kd = kdtree.KDTree(len(dense_pts))
+    for idx, pt in enumerate(dense_pts):
+        kd.insert(pt, idx)
+    kd.balance()
+
+    mesh = terrain_obj.data
+    half_w = road_width / 2.0
+    total_w = half_w + falloff
+    modified_count = 0
+
+    for v in mesh.vertices:
+        v_world = mat_terrain @ v.co
+        near_pt, near_idx, dist_3d = kd.find(v_world)
+        dist_2d = math.hypot(v_world.x - near_pt.x, v_world.y - near_pt.y)
+
+        if dist_2d <= total_w:
+            road_z = near_pt.z
+            target_z = road_z - clearance
+
+            if dist_2d <= half_w:
+                # Directamente bajo la calzada: deprimir si sobresale
+                if v_world.z > target_z:
+                    new_w = Vector((v_world.x, v_world.y, target_z))
+                    v.co = inv_terrain @ new_w
+                    modified_count += 1
+            else:
+                # Zona de transición / talud
+                t = (dist_2d - half_w) / falloff
+                blend_target = target_z * (1.0 - t) + v_world.z * t
+                if v_world.z > blend_target:
+                    new_w = Vector((v_world.x, v_world.y, blend_target))
+                    v.co = inv_terrain @ new_w
+                    modified_count += 1
+
+    if modified_count > 0:
+        mesh.update()
+
+    return modified_count
+
+
+class TRACKMAKER_OT_TerraformTerrain(bpy.types.Operator):
+    """Conforma el relieve del terreno bajo la carretera (Desmonte) para que la montaña no perfore el asfalto."""
+
+    bl_idname = "track_maker.terraform_terrain"
+    bl_label = "Conformar Terreno bajo Calzada"
+    bl_description = "Hunde los salientes del relieve DEM bajo la carretera para evitar que el terreno perfore el asfalto"
+    bl_options = {"REGISTER", "UNDO"}
+
+    clearance: bpy.props.FloatProperty(
+        name="Holgura Bajo Asfalto (m)",
+        description="Distancia de seguridad por debajo de la cota de asfalto",
+        default=0.20,
+        min=0.05,
+        max=1.0,
+        unit="LENGTH",
+    )
+
+    falloff: bpy.props.FloatProperty(
+        name="Margen de Transición (m)",
+        description="Anchura del talud de transición fuera de la calzada",
+        default=4.0,
+        min=1.0,
+        max=20.0,
+        unit="LENGTH",
+    )
+
+    def execute(self, context):
+        gis_cfg = context.scene.track_maker_gis
+        terrain_obj = bpy.data.objects.get(gis_cfg.target_terrain_name or "TM_Terrain")
+        spline_obj = context.active_object if (context.active_object and context.active_object.type == "CURVE") else bpy.data.objects.get("Spline_Route_AB")
+
+        if not terrain_obj or terrain_obj.type != "MESH":
+            self.report({"ERROR"}, "No se encontró el objeto de terreno ('TM_Terrain').")
+            return {"CANCELLED"}
+        if not spline_obj or spline_obj.type != "CURVE":
+            self.report({"ERROR"}, "No se encontró el spline de la carretera.")
+            return {"CANCELLED"}
+
+        road_cfg = getattr(context.scene, "track_maker_road", None)
+        road_w = getattr(road_cfg, "road_width", 12.0) if road_cfg else 12.0
+        if getattr(road_cfg, "has_shoulders", False):
+            road_w += getattr(road_cfg, "shoulder_width", 2.5) * 2.0
+
+        try:
+            modified = terraform_terrain_to_road(
+                terrain_obj=terrain_obj,
+                spline_obj=spline_obj,
+                road_width=road_w,
+                clearance=self.clearance,
+                falloff=self.falloff,
+            )
+            self.report({"INFO"}, f"🏔️ Terreno conformado: {modified} vértices adaptados bajo la calzada.")
+            return {"FINISHED"}
+        except Exception as e:
+            self.report({"ERROR"}, f"Error conformando terreno: {e}")
+            return {"CANCELLED"}
+
+
 classes = (
     TRACKMAKER_OT_SnapCurveToTerrain,
     TRACKMAKER_OT_SmoothCurveElevation,
+    TRACKMAKER_OT_TerraformTerrain,
 )
 
 
