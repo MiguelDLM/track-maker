@@ -53,7 +53,10 @@ def register():
 
 def unregister():
     for mod in reversed(modules):
-        mod.unregister()
+        try:
+            mod.unregister()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

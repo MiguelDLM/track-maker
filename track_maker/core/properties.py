@@ -394,15 +394,16 @@ def register():
 
 
 def unregister():
-    del bpy.types.Scene.track_maker_circuit
-    del bpy.types.Scene.track_maker_spawns
-    del bpy.types.Scene.track_maker_timing
-    del bpy.types.Scene.track_maker_road
-    del bpy.types.Scene.track_maker_gis
-    del bpy.types.Scene.track_maker_export
+    for attr in ("track_maker_circuit", "track_maker_spawns", "track_maker_timing", "track_maker_road", "track_maker_gis", "track_maker_export"):
+        if hasattr(bpy.types.Scene, attr):
+            delattr(bpy.types.Scene, attr)
 
     for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+        try:
+            bpy.utils.unregister_class(cls)
+        except Exception:
+            pass
+
 
 
 

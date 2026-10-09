@@ -369,9 +369,11 @@ class TRACKMAKER_OT_GenerateRoadMeshes(bpy.types.Operator):
 
                 phys_obj = bpy.data.objects.new(phys_mesh_name, phys_mesh_data)
                 phys_obj["track_element_type"] = ELEMENT_ROAD_PHYSICS
+                phys_obj.display_type = "WIRE"  # Evita Z-fighting con la malla visual en el Viewport
 
                 col_phys = get_or_create_collection(COLLECTION_ROAD_PHYSICS, parent_name=COLLECTION_ROOT)
                 col_phys.objects.link(phys_obj)
+
 
         self.report({"INFO"}, f"Mallas generadas: Visual (ROAD_{base_name}) y Física ({PREFIX_PHYS_ROAD}{base_name})")
         return {"FINISHED"}
@@ -387,4 +389,8 @@ def register():
 
 def unregister():
     for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+        try:
+            bpy.utils.unregister_class(cls)
+        except Exception:
+            pass
+

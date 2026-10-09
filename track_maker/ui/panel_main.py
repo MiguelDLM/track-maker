@@ -32,7 +32,7 @@ class TRACKMAKER_PT_MainPanel(bpy.types.Panel):
 
         # Sección de Diagnóstico Rápido de Nodos
         box_diag = layout.box()
-        box_diag.label(text="Estado de Nodos en Escena", icon="CHECKLIST")
+        box_diag.label(text="Estado de Nodos en Escena", icon="CHECKBOX_HLT")
 
         nodes = count_race_nodes()
 
@@ -86,4 +86,8 @@ def register():
 
 def unregister():
     for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+        try:
+            bpy.utils.unregister_class(cls)
+        except Exception:
+            pass
+

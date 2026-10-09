@@ -38,7 +38,7 @@ class TRACKMAKER_PT_ExportPanel(bpy.types.Panel):
         # 2. VALIDACIÓN PRE-FLIGHT
         # ---------------------------------------------------------
         box_val = layout.box()
-        box_val.label(text="Comprobación Pre-flight", icon="CHECKLIST")
+        box_val.label(text="Comprobación Pre-flight", icon="CHECKBOX_HLT")
 
         report = validate_scene_for_assetto_corsa(scene)
 
@@ -76,4 +76,8 @@ def register():
 
 def unregister():
     for cls in reversed(classes):
-        bpy.utils.unregister_class(cls)
+        try:
+            bpy.utils.unregister_class(cls)
+        except Exception:
+            pass
+
