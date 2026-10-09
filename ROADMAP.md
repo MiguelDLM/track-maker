@@ -5,8 +5,8 @@ Este documento define el estado actual, las fases de desarrollo planificadas y e
 ---
 
 ## 🧭 Estado Actual del Proyecto
-* **Fase Activa:** **Fase 1 (En implementación)**
-* **Objetivo de la Fase:** Esqueleto modular del Addon de Blender 4.2+, paneles de interfaz de usuario y generador interactivo de Nodos de Carrera de Assetto Corsa (`AC_START_`, `AC_PIT_`, `AC_TIME_`, `AC_HOTLAP_`).
+* **Fase Activa:** **Fase 2 (Siguiente: Generador de Carreteras Procedurales y Separación Física/Visual)**
+* **Hitos Recientes:** Fase 1 completada con éxito (documentación técnica, estructura modular del addon, constantes oficiales de AC, PropertyGroups, operadores de spawns/boxes/timing gates y paneles UI en el N-Panel de Blender).
 
 ---
 
@@ -26,23 +26,25 @@ flowchart LR
 
 ---
 
-### Fase 1: Esqueleto Modular y Nodos de Carrera de Assetto Corsa 🟡 *(En Progreso)*
+### Fase 1: Esqueleto Modular y Nodos de Carrera de Assetto Corsa 🟢 *(Completada)*
 - [x] Documentación exhaustiva técnica y guía de handover para futuros agentes.
 - [x] Definición de constantes oficiales de Assetto Corsa (`core/constants.py`).
-- [ ] Creación de propiedades de escena y objeto (`core/properties.py`).
-- [ ] Utilidades de escena: colecciones automáticas, visualizadores de orientación y flechas (`core/utils.py`).
-- [ ] Operador de Parrilla de Salida (`race_nodes/spawn_manager.py`):
+- [x] Creación de propiedades de escena y objeto (`core/properties.py`).
+- [x] Utilidades de escena: colecciones automáticas, visualizadores de orientación y flechas (`core/utils.py`).
+- [x] Operador de Parrilla de Salida (`race_nodes/spawn_manager.py`):
   - Creación de `AC_START_0..N`.
-  - Opciones de espaciado longitudinal/lateral, escalonado (staggered) o en fila india.
-  - Orientación automática siguiendo curvas o dirección del circuito.
-- [ ] Operador de Puestos de Boxes (`AC_PIT_0..N`):
+  - Opciones de espaciado longitudinal/lateral, escalonado (staggered), paralelo o en fila india.
+  - Orientación automática y flecha visual en 3D Viewport.
+- [x] Operador de Puestos de Boxes (`AC_PIT_0..N`):
   - Creación de boxes con distancia configurable.
-- [ ] Operador de Salida Lanzada / Hotlap (`AC_HOTLAP_START_0`).
-- [ ] Operador de Puertas de Cronometraje (`race_nodes/timing_gates.py`):
+- [x] Operador de Salida Lanzada / Hotlap (`AC_HOTLAP_START_0`).
+- [x] Operador de Puertas de Cronometraje (`race_nodes/timing_gates.py`):
   - Línea de Meta: `AC_TIME_0_L` y `AC_TIME_0_R`.
   - Splits / Sectores: `AC_TIME_1_L/R`, `AC_TIME_2_L/R`.
   - Modo Tramo A-B (Hillclimb/Rally): `AC_AB_START_L/R` y `AC_AB_FINISH_L/R`.
-- [ ] Panel UI en el Sidebar (`3D View > N-Panel > Track Maker`).
+- [x] Panel UI en el Sidebar (`3D View > N-Panel > Track Maker`):
+  - `panel_main.py`: Diagnóstico de circuito y estado en tiempo real de nodos en escena.
+  - `panel_race_nodes.py`: Controles interactivos y generación con 1 clic.
 
 ---
 
